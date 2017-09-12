@@ -178,3 +178,58 @@ res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
 
 summary(res)
 ```
+
+This block is to add the gene names and description.
+```{r, echo=FALSE}
+#####################
+# Adding gene names #
+#####################
+
+res$ensembl <- rownames(res)
+ensembl = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+# More annotations could also be added from biomaRt:
+# listAttributes(mart = ensembl)
+
+genemap <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol", "description"),
+                 filters = "ensembl_gene_id",
+                 values = res$ensembl,
+                 mart = ensembl)
+
+idx <- match(res$ensembl, genemap$ensembl_gene_id)
+res$symbol <- genemap$hgnc_symbol[idx]
+res$description <- genemap$description[idx]
+
+```
+
+This is to visualize the results and make some outputs in .csv format
+```{r, echo=FALSE}
+#########################################
+# Visualizing and filtering the results #
+#########################################
+
+summary(res)
+#write.csv(as.data.frame(res), file = "results_Tumor_vs_Normal_full.csv")
+write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_full.csv")
+#write.csv(as.data.frame(res), file = "results_Prims_vs_Normal_full.csv")
+head(res, n = 10)
+table(res$padj < cutoff_alpha)
+table(abs(res$log2FoldChange) >= 1)
+table((abs(res$log2FoldChange) >= 1) & (res$padj < cutoff_alpha))
+
+res_sig <- subset(res, ( (padj < cutoff_alpha) & !is.na(padj) ))
+summary(res_sig)
+head(res_sig, n = 10)
+#write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_sig.csv")
+
+res_fold.over <- subset(res_sig, log2FoldChange >= 1)
+res_fold.under <- subset(res_sig, log2FoldChange <= -1)
+
+res_fold.over.sorted <- res_fold.over[order(-res_fold.over$log2FoldChange, na.last=TRUE), ]
+res_fold.under.sorted <- res_fold.under[order(res_fold.under$log2FoldChange, na.last=TRUE), ]
+
+head(res_fold.over.sorted, n = 10)
+head(res_fold.under.sorted, n = 10)
+
+write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
+write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
+```
