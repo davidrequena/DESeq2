@@ -1,0 +1,180 @@
+---
+title: "DEseq2"
+author: "David Requena and Jamie Saltsman"
+date: "September 12, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Differential expression analysis using DEseq2
+
+#### Installing and/or calling the libraries
+
+This first block is just to install the dependencies. If already installed, just left this commented.
+
+```{r Install libraries, eval=FALSE, echo=FALSE}
+# # Import necessary libraries
+# install.packages('ggplot2')
+# install.packages('gplots')
+# install.packages('RColorBrewer')
+# install.packages('matrixStats')
+# 
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
+# biocLite("DESeq2")
+# biocLite("biomaRt")
+# biocLite("pheatmap")
+```
+This block is to call all the required libraries:
+
+```{r, echo=FALSE}
+library("XML")
+library("DESeq2")
+library("biomaRt")
+library("gplots")
+library("RColorBrewer")
+library("ggplot2")
+library("pheatmap")
+library("matrixStats")
+```
+
+##### Input sample metadata
+
+In this block, you just need to change the working directory:
+
+```{r "setup"}
+require("knitr")
+knitr::opts_knit$set(root.dir = "../RNAseq_data") # <<<------------- *** WORKING DIRECTORY ***
+
+# The samples' data and the counts' table must be in your working directory
+sample_data <- "samples_data.tsv"
+counts <- "counts.tsv"
+```
+
+This block is to read the samples' data.
+There is also an option to work with subsets.
+
+```{r, echo=FALSE}
+#########################
+# Input sample metadata #
+#########################
+
+sampledata <- data.frame(read.csv(sample_data, sep = "\t", header = TRUE))
+
+# The next two lines are only necessary if you're planning to work with a subset of the data:
+#sampledata <- sampledata[sampledata$normal=="N",]
+sampledata <- sampledata[sampledata$library_prep!=0,]
+sampledata$library_prep <- factor(sampledata$library_prep)
+
+# To sort the table by sample name:
+sampledata <- sampledata[order(sampledata[,2]),]
+sampledata$patient <- as.character(sampledata$patient)
+rownames(sampledata) <- sampledata$id
+```
+
+This block is to read the tables with the counts.
+There is also an option to filter out some genes (blacklist).
+```{r, echo=FALSE}
+######################
+# Input counts table #
+######################
+
+countstable <- data.frame(read.csv(counts, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
+
+# Filter out some genes:
+# black_list = c("ENSG00000142173", "ENSG00000130203", "ENSG00000142798", "ENSG00000178209", "ENSG00000172889", "ENSG00000147813", "ENSG00000178814", "ENSG00000159069", "ENSG00000182871", "ENSG00000188157", "ENSG00000176978", "ENSG00000167701", "ENSG00000099795", "ENSG00000196924", "ENSG00000176919", "ENSG00000138080", "ENSG00000179403", "ENSG00000164880", "ENSG00000178685", "ENSG00000008710", "ENSG00000182327", "ENSG00000118137", "ENSG00000107331", "ENSG00000166183", "ENSG00000099624", "ENSG00000162337")
+# for (gene in black_list) {
+#   countstable <- countstable[(countstable[,1] != gene), ]
+# }
+
+# Save the gene list, to be used later as row names:
+generows <- unlist(countstable[,1], use.names=FALSE)
+generows <- generows[-1]
+droplevels(generows)
+
+# This column contains the gene names, we don't need it anymore:
+countstable[,1] <- NULL
+
+# To sort the table by sample name:
+countstable.sorted <- countstable[,order(countstable[1,])]
+
+# Save the samples list, to be used later as column names:
+genecols <- unlist(countstable.sorted[1,], use.names=FALSE)
+droplevels(genecols)
+
+# To convert the countstable from text to numbers, any string should be removed (names on the first row):
+countstable.sorted <- countstable.sorted[-1,]
+
+# Convert the table from characters to numeric:
+countstable.num <- as.data.frame(apply(countstable.sorted, c(1,2), as.integer))
+
+# Then, add the row and column names:
+rownames(countstable.num) <- generows
+colnames(countstable.num) <- genecols
+
+# This line is to filter the countstable, only necessary if you're working with a subset of the sampledata:
+countstable.num <- countstable.num[sampledata$id]
+
+# To remove empty rows:
+countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
+```
+
+The following block is only necessary if you wanna apply an independent prior filtering before the differential expression analysis
+```{r, echo=FALSE}
+##########################################
+# Independent prior filtering (optional) #
+##########################################
+
+# To remove any gene with 0 reads in at least one sample (i.e. considering only transcripts present in all the samples)
+# countstable.num <- cbind(countstable.num, 1)
+# for (i in 1:(ncol(countstable.num) - 1)) {
+#   countstable.num$`1` <- countstable.num$`1` * countstable.num[,i]
+# }
+# countstable.num <- countstable.num[countstable.num$`1` != 0,]
+# countstable.num$`1` <- NULL
+
+# To work using only transcripts with more than 5 reads in all the samples
+# countstable.num <- countstable.num[apply(countstable.num, 1, function(row) (all(row > 5))),]
+```
+
+#### DEseq2
+
+This chunk creates the DEseq2 object
+
+```{r, echo=FALSE}
+#########
+# DESeq #
+#########
+
+# create a DESeqDataSet from the tables above
+ds.deseq <- DESeqDataSetFromMatrix(
+  countData = countstable.num,
+  colData = sampledata,
+  design = ~ library_prep + sample_type)
+  #design = ~ library_prep + normal)
+```
+
+This will run the differential expression analysis
+```{r, echo=FALSE}
+# Run DESeq2
+ds.deseq <- DESeq(ds.deseq)
+
+# This will show the possible comparisons, according to the model set before
+resultsNames(ds.deseq)
+
+# p value
+cutoff_alpha <- 0.05
+
+# Get the result of a certain comparison (see results help for info on this)
+#res <- results(ds.deseq, contrast=c("sample_type", "primary", "normal"),
+#res <- results(ds.deseq, contrast=c("normal", "N", "Y"),
+res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
+               altHypothesis="greaterAbs",
+               alpha = cutoff_alpha,
+               pAdjustMethod = "BH") # Benjamini Hochberg, or FDR
+
+summary(res)
+```
