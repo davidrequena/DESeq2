@@ -11,9 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Differential expression analysis using DEseq2
 
-# DESeq Vignette
-# https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
-
 ## 1. SET UP
 
 ### Installing and/or calling the libraries
@@ -441,3 +438,5 @@ pheatmap(vsd, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
 pheatmap(vsdp, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
          annotation = data.frame(sampledata[,c(1,4)]))
 ```
+For further guidance, check the DESeq2 Vignette:
+https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
