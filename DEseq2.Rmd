@@ -9,9 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Differential expression analysis using DEseq2
+# Differential expression analysis using DEseq2
 
-#### Installing and/or calling the libraries
+## 1. SET UP
+
+### Installing and/or calling the libraries
 
 This first block is just to install the dependencies. If already installed, just left this commented.
 
@@ -41,7 +43,7 @@ library("pheatmap")
 library("matrixStats")
 ```
 
-##### Input sample metadata
+### Input sample metadata
 
 In this block, you just need to change the working directory:
 
@@ -65,8 +67,9 @@ There is also an option to work with subsets.
 sampledata <- data.frame(read.csv(sample_data, sep = "\t", header = TRUE))
 
 # The next two lines are only necessary if you're planning to work with a subset of the data:
-#sampledata <- sampledata[sampledata$normal=="N",]
-sampledata <- sampledata[sampledata$library_prep!=0,]
+#sampledata <- sampledata[sampledata$library_prep!=0,]
+#sampledata <- sampledata[sampledata$have_npm=="Y",]
+sampledata <- sampledata[sampledata$normal_pm=="Y",]
 sampledata$library_prep <- factor(sampledata$library_prep)
 
 # To sort the table by sample name:
@@ -140,9 +143,10 @@ The following block is only necessary if you wanna apply an independent prior fi
 # countstable.num <- countstable.num[apply(countstable.num, 1, function(row) (all(row > 5))),]
 ```
 
-#### DEseq2
+## Data Analysis
 
-This chunk creates the DEseq2 object
+### Create the DEseq2 object
+The model should be especified in this step
 
 ```{r, echo=FALSE}
 #########
@@ -153,14 +157,18 @@ This chunk creates the DEseq2 object
 ds.deseq <- DESeqDataSetFromMatrix(
   countData = countstable.num,
   colData = sampledata,
-  design = ~ library_prep + sample_type)
+  design = ~ library_prep + patient + sample_type)
   #design = ~ library_prep + normal)
 ```
 
-This will run the differential expression analysis
+### Comparison
 ```{r, echo=FALSE}
 # Run DESeq2
 ds.deseq <- DESeq(ds.deseq)
+
+
+
+#This step is to indicate which is the base level (normal)
 
 # This will show the possible comparisons, according to the model set before
 resultsNames(ds.deseq)
@@ -179,6 +187,7 @@ res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
 summary(res)
 ```
 
+### Annotation and output tables
 This block is to add the gene names and description.
 ```{r, echo=FALSE}
 #####################
@@ -201,7 +210,7 @@ res$description <- genemap$description[idx]
 
 ```
 
-This is to visualize the results and make some outputs in .csv format
+This is to visualize a summary of the results and make some output tables in .csv format
 ```{r, echo=FALSE}
 #########################################
 # Visualizing and filtering the results #
@@ -232,4 +241,16 @@ head(res_fold.under.sorted, n = 10)
 
 write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
 write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
+```
+
+## Variance stabilized transformation
+```{r, echo=FALSE}
+vsd <- varianceStabilizingTransformation(ds.deseq)
+head(assay(vsd))
+```
+
+## rLog transformation
+```{r, echo=FALSE}
+rld <- rlog(dds)
+head(assay(rld))
 ```
