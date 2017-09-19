@@ -1,7 +1,7 @@
 ---
 title: "DEseq2"
 author: "David Requena and Jamie Saltsman"
-date: "September 12, 2017"
+date: "September 19, 2017"
 output: html_document
 ---
 
@@ -19,28 +19,39 @@ This first block is just to install the dependencies. If already installed, just
 
 ```{r Install libraries, eval=FALSE, echo=FALSE}
 # # Import necessary libraries
-# install.packages('ggplot2')
-# install.packages('gplots')
-# install.packages('RColorBrewer')
+# install.packages('knitr')
 # install.packages('matrixStats')
-# 
-# source("https://bioconductor.org/biocLite.R")
+# install.packages('RColorBrewer')
+# install.packages('gplots')
+# install.packages('ggplot2')
+# install.packages('ggrepel')
+# install.packages('tsne')
+# install.packages('BatchJobs')
+ 
+#source("https://bioconductor.org/biocLite.R")
 # biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
-# biocLite("DESeq2")
-# biocLite("biomaRt")
-# biocLite("pheatmap")
+# biocLite("BiocParallel", build_vignettes=TRUE, dependencies=TRUE)
+# biocLite("DESeq2", build_vignettes=TRUE, dependencies=TRUE)
+# biocLite("biomaRt", build_vignettes=TRUE, dependencies=TRUE)
+# biocLite("pheatmap", build_vignettes=TRUE, dependencies=TRUE)
 ```
 This block is to call all the required libraries:
 
 ```{r, echo=FALSE}
-library("XML")
+# library("XML")
+library("knitr")
 library("DESeq2")
 library("biomaRt")
-library("gplots")
-library("RColorBrewer")
-library("ggplot2")
-library("pheatmap")
 library("matrixStats")
+library("BatchJobs")
+library("BiocParallel")
+library("RColorBrewer")
+library("gplots")
+library("ggplot2")
+library("ggrepel")
+library("tsne")
+library("pheatmap")
+
 ```
 
 ### Input sample metadata
@@ -48,7 +59,7 @@ library("matrixStats")
 In this block, you just need to change the working directory:
 
 ```{r "setup"}
-require("knitr")
+# require("knitr")
 knitr::opts_knit$set(root.dir = "../RNAseq_data") # <<<------------- *** WORKING DIRECTORY ***
 
 # The samples' data and the counts' table must be in your working directory
@@ -69,8 +80,9 @@ sampledata <- data.frame(read.csv(sample_data, sep = "\t", header = TRUE))
 # The next two lines are only necessary if you're planning to work with a subset of the data:
 #sampledata <- sampledata[sampledata$library_prep!=0,]
 #sampledata <- sampledata[sampledata$have_npm=="Y",]
-sampledata <- sampledata[sampledata$normal_pm=="Y",]
+#sampledata <- sampledata[sampledata$normal_pm=="Y",]
 sampledata$library_prep <- factor(sampledata$library_prep)
+droplevels(sampledata$id)
 
 # To sort the table by sample name:
 sampledata <- sampledata[order(sampledata[,2]),]
@@ -96,7 +108,7 @@ countstable <- data.frame(read.csv(counts, sep = "\t", header = FALSE), stringsA
 # Save the gene list, to be used later as row names:
 generows <- unlist(countstable[,1], use.names=FALSE)
 generows <- generows[-1]
-droplevels(generows)
+invisible(droplevels(generows))
 
 # This column contains the gene names, we don't need it anymore:
 countstable[,1] <- NULL
@@ -119,7 +131,7 @@ rownames(countstable.num) <- generows
 colnames(countstable.num) <- genecols
 
 # This line is to filter the countstable, only necessary if you're working with a subset of the sampledata:
-countstable.num <- countstable.num[sampledata$id]
+countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
 
 # To remove empty rows:
 countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
@@ -143,32 +155,186 @@ The following block is only necessary if you wanna apply an independent prior fi
 # countstable.num <- countstable.num[apply(countstable.num, 1, function(row) (all(row > 5))),]
 ```
 
-## Data Analysis
-
 ### Create the DEseq2 object
-The model should be especified in this step
-
+With no specific design, but indicating the base level
 ```{r, echo=FALSE}
-#########
-# DESeq #
-#########
+################
+# DESeq Object #
+################
 
-# create a DESeqDataSet from the tables above
+# create a DESeqDataSet from the tables above, with no specific design yet:
 ds.deseq <- DESeqDataSetFromMatrix(
   countData = countstable.num,
   colData = sampledata,
-  design = ~ library_prep + patient + sample_type)
-  #design = ~ library_prep + normal)
+  design = ~ sample_type)
+  #design = ~ library_prep + sample_type)
+
+#This step is to indicate the base level: sample_type == normal
+str(colData(ds.deseq)$sample_type) # To see which is the current base level
+colData(ds.deseq)$sample_type  <- relevel(colData(ds.deseq)$sample_type, "normal")
+str(colData(ds.deseq)$sample_type) # To verify which is the current base level
+```
+
+## 2. Data Exploration
+This step is necessary to determine which variables we should control
+
+### Transformations of the Data
+To adjust by known effects
+```{r, echo=FALSE}
+# Variance stabilized transformation
+transf.data <- varianceStabilizingTransformation(ds.deseq)
+head(assay(transf.data))
+
+# rLog transformation
+# transf.data <- rlog(ds.deseq)
+# head(assay(transf.data))
+```
+
+### PCA plot
+```{r, echo=FALSE}
+######################
+# plotPCAdr function #
+######################
+# This is the plotPCA function with some improvements made by David Requena
+# To chosse which PCs plot and to use two features for color/shape
+
+plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), returnData = FALSE) 
+{
+  PC_x <- paste("PC", PCs[1], sep = "")
+  PC_y <- paste("PC", PCs[2], sep = "")
+  rv <- rowVars(assay(object))
+  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, 
+                                                     length(rv)))]
+  pca <- prcomp(t(assay(object)[select, ]))
+  percentVar <- pca$sdev^2/sum(pca$sdev^2)
+  if (!all(intgroup %in% names(colData(object)))) {
+    stop("the argument 'intgroup' should specify columns of colData(dds)")
+  }
+  
+  intgroup.df <- as.data.frame(colData(object)[, intgroup, 
+                                               drop = FALSE])
+  
+  #return(pca$x)
+  #return(pca$x[, c(PCs[1], PCs[2])])
+  
+  # To assign different shapes
+  d <- data.frame(PCx = pca$x[, PCs[1]], PCy = pca$x[, PCs[2]],
+                  to_color = factor(intgroup.df[,1]), to_shape = factor(intgroup.df[,2]),
+                  name = colnames(object))
+  #return(d)
+  
+  if (returnData) {
+    attr(d, "percentVar") <- percentVar[PCs[1]:PCs[2]]
+    return(d)
+  }
+
+  ggplot(data = d, aes_string(x = "PCx", y = "PCy", color = "to_color", shape = "to_shape")) +
+    labs(color = intgroup[1], shape = intgroup[2]) + geom_point(size = 3, alpha = 1) +
+    xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
+    ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance")) + coord_fixed()
+  
+  # To use only one feature:
+  # Comment the code above from "d <-" to  "gglot ..." 
+  # and uncommentthe following code from "group <- " to  "gglot ..." 
+  #
+  # group <- if (length(intgroup) > 1) {
+  #   factor(apply(intgroup.df, 1, paste, collapse = " : "))
+  # }
+  # else {
+  #   colData(object)[[intgroup]]
+  # }
+  #
+  # Uncomment the next 2 lines to use only one feature
+  # d <- data.frame(PCx = pca$x[, PCs[1]], PCy = pca$x[, PCs[2]], group = group,
+  #                 intgroup.df, name = colnames(object))
+  #
+  # ggplot(data = d, aes_string(x = "PCx", y = "PCy", color = "group")) +
+  #   geom_point(size = 3, alpha = 1) + xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
+  #   ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance")) + coord_fixed()
+  
+}
+
+##############
+
+# Make a PCA plot
+pca <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(1,2))
+pca <- pca + geom_text_repel(aes_string(label = transf.data$id), color = "black",
+                             cex=3, nudge_x = -4, nudge_y = 0,
+                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+print(pca)
+
+#This code is to use a simpler method to plot the PCs:
+# pr <- prcomp(t(assay(transf.data)))
+# plot(pr$x[,-1])
+# text(pr$x[,2], pr$x[,3], labels = colnames(assay(transf.data)),
+#      pos = 1, offset = 0.2, cex = 0.7)
+
+#sort(abs(pr$rotation[,1]), decreasing = TRUE)[1:50]
+#sort(abs(pr$rotation[,1]), decreasing = TRUE)
+#write.csv(sort(abs(pr$rotation[,1]), decreasing = TRUE), file = "PC1.csv")
+```
+
+### tSNE plot
+```{r, echo=FALSE}
+# Calculate the euclidean distances between samples
+sampleDists <- dist(t(assay(transf.data)))
+
+samples.tsne <- tsne(sampleDists, perplexity = 4, max_iter = 10000)
+
+df.tsne <- data.frame(samples.tsne)
+df.tsne$id <- sampledata$id
+df.tsne$library <- sampledata$lib_prep
+df.tsne$patient <- sampledata$patient
+df.tsnet$sample_type <- sampledata$sample_type
+
+p.tsne <- ggplot(data = df.tsne) +
+  geom_point(aes(x = X1, y = X2, color = sample_type, shape = library), size = 3) +
+  geom_text_repel(aes_string(x = df.tsne$X1, y = df.tsne$X2, label = df.tsne$id), color = "black",
+                  cex=3, nudge_x = -4, nudge_y = 0,
+                  min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+p.tsne
+```
+
+### HeatMap
+```{r, echo=FALSE}
+sampleDistMatrix <- as.matrix(sampleDists)
+
+rownames(sampleDistMatrix) <- paste(transf.data$id, transf.data$sample_type, sep = "_")
+colnames(sampleDistMatrix) <- paste(transf.data$id, transf.data$sample_type, sep = "_")
+
+# Make heatmap based on the Distance matrix (uses all genes)
+# Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
+heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
+          key = TRUE, density.info = "none") #, col=colors)
+```
+
+
+## 2. Data Analysis
+
+### Experimental Design
+The model matrix (design) determined above should be specified in this step
+```{r, echo=FALSE}
+################
+# Model Matrix #
+################
+
+# Define the model (design) to use, controlling by:
+# lib_prep -> library preparation
+# lib_prep:nested_patient -> patient (obtained by a combination of lib_prep and nested patient)
+# sample_type -> normal, tumor or metastasis
+mm <- model.matrix(~ lib_prep + lib_prep:nested_patient + sample_type, colData(ds.deseq))
+
+# Sometimes the matrix has some columns full of zeros. These should be removed.
+mm <- mm[ , colSums(mm) > 0]
+
 ```
 
 ### Comparison
 ```{r, echo=FALSE}
-# Run DESeq2
-ds.deseq <- DESeq(ds.deseq)
-
-
-
-#This step is to indicate which is the base level (normal)
+# Run DESeq2 using the model defined
+ds.deseq <- DESeq(ds.deseq, full=mm,
+                  modelMatrixType="standard", betaPrior=FALSE,
+                  parallel = TRUE, BPPARAM=BatchJobsParam(workers = 64))
 
 # This will show the possible comparisons, according to the model set before
 resultsNames(ds.deseq)
@@ -176,9 +342,8 @@ resultsNames(ds.deseq)
 # p value
 cutoff_alpha <- 0.05
 
-# Get the result of a certain comparison (see results help for info on this)
+# Get the result of a certain comparison (see "help(results)" for info on this)
 #res <- results(ds.deseq, contrast=c("sample_type", "primary", "normal"),
-#res <- results(ds.deseq, contrast=c("normal", "N", "Y"),
 res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
                altHypothesis="greaterAbs",
                alpha = cutoff_alpha,
@@ -217,10 +382,11 @@ This is to visualize a summary of the results and make some output tables in .cs
 #########################################
 
 summary(res)
-#write.csv(as.data.frame(res), file = "results_Tumor_vs_Normal_full.csv")
 write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_full.csv")
 #write.csv(as.data.frame(res), file = "results_Prims_vs_Normal_full.csv")
+#write.csv(as.data.frame(res), file = "results_Tumor_vs_Normal_full.csv")
 head(res, n = 10)
+
 table(res$padj < cutoff_alpha)
 table(abs(res$log2FoldChange) >= 1)
 table((abs(res$log2FoldChange) >= 1) & (res$padj < cutoff_alpha))
@@ -243,14 +409,31 @@ write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_ove
 write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
 ```
 
-## Variance stabilized transformation
 ```{r, echo=FALSE}
-vsd <- varianceStabilizingTransformation(ds.deseq)
-head(assay(vsd))
-```
+################
+# Volcano Plot #
+################
+# Colors
+cols <- rep("black", nrow(res))
+cols[(res$log2FoldChange >= 1) & (res$padj < 0.01)] <- "red"
+cols[(res$log2FoldChange <= -1) & (res$padj < 0.01)] <- "blue"
+cols[(res$log2FoldChange >= 1) & (res$padj >= 0.01)] <- "grey60"
+cols[(res$log2FoldChange <= -1) & (res$padj >= 0.01)] <- "grey60"
+# Plot
+plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, col = cols, las = 1,
+     xlab = "log2(Fold Change)", ylab = "-log10(p adjusted)")
+# text(x = res$log2FoldChange, y = -log10(res$padj), labels = res$symbol, cex = 0.7)
+# Vertical and horizontal lines
+abline(h = -log10(0.01), col = "grey75")
+abline(v = c(-1, 1), col = "grey75")
+# Title
+title(main = "Metastasis vs Primary")
 
-## rLog transformation
-```{r, echo=FALSE}
-rld <- rlog(dds)
-head(assay(rld))
+# Using a different HeatMap function:
+vsd <- getVarianceStabilizedData(ds.deseq)
+vsdp <- vsd[rownames(vsd) %in% rownames(res_sig),]
+pheatmap(vsd, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
+         annotation = data.frame(sampledata[,c(1,4)]))
+pheatmap(vsdp, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
+         annotation = data.frame(sampledata[,c(1,4)]))
 ```
