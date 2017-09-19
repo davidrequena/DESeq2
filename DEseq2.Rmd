@@ -11,6 +11,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Differential expression analysis using DEseq2
 
+# DESeq Vignette
+# https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
+
 ## 1. SET UP
 
 ### Installing and/or calling the libraries
@@ -344,7 +347,8 @@ cutoff_alpha <- 0.05
 
 # Get the result of a certain comparison (see "help(results)" for info on this)
 #res <- results(ds.deseq, contrast=c("sample_type", "primary", "normal"),
-res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
+#res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
+res <- results(ds.deseq, contrast=list("sample_typemetastasis", "sample_typeprimary"),
                altHypothesis="greaterAbs",
                alpha = cutoff_alpha,
                pAdjustMethod = "BH") # Benjamini Hochberg, or FDR
