@@ -1,7 +1,7 @@
 ---
-title: "DEseq2"
+title: "Differential expression analysis using DEseq2"
 author: "David Requena and Jamie Saltsman"
-date: "September 19, 2017"
+date: "09/21/2017"
 output: html_document
 ---
 
@@ -100,7 +100,7 @@ There is also an option to filter out some genes (blacklist).
 countstable <- data.frame(read.csv(counts, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
 
 # Filter out some genes:
-# black_list = c("ENSG00000142173", "ENSG00000130203", "ENSG00000142798", "ENSG00000178209", "ENSG00000172889", "ENSG00000147813", "ENSG00000178814", "ENSG00000159069", "ENSG00000182871", "ENSG00000188157", "ENSG00000176978", "ENSG00000167701", "ENSG00000099795", "ENSG00000196924", "ENSG00000176919", "ENSG00000138080", "ENSG00000179403", "ENSG00000164880", "ENSG00000178685", "ENSG00000008710", "ENSG00000182327", "ENSG00000118137", "ENSG00000107331", "ENSG00000166183", "ENSG00000099624", "ENSG00000162337")
+# black_list = c("ENSG00000142173", "ENSG00000130203", "ENSG00000142798", "ENSG00000178209", "ENSG00000172889","ENSG00000147813", "ENSG00000178814", "ENSG00000159069", "ENSG00000182871", "ENSG00000188157", "ENSG00000176978", "ENSG00000167701", "ENSG00000099795", "ENSG00000196924", "ENSG00000176919", "ENSG00000138080", "ENSG00000179403", "ENSG00000164880", "ENSG00000178685", "ENSG00000008710", "ENSG00000182327", "ENSG00000118137", "ENSG00000107331", "ENSG00000166183", "ENSG00000099624", "ENSG00000162337")
 # for (gene in black_list) {
 #   countstable <- countstable[(countstable[,1] != gene), ]
 # }
@@ -162,20 +162,23 @@ With no specific design, but indicating the base level
 # DESeq Object #
 ################
 
-# create a DESeqDataSet from the tables above, with no specific design yet:
+# This is to reate a DESeqDataSet from the tables above, with no specific design yet:
 ds.deseq <- DESeqDataSetFromMatrix(
   countData = countstable.num,
   colData = sampledata,
   design = ~ sample_type)
   #design = ~ library_prep + sample_type)
 
-#This step is to indicate the base level: sample_type == normal
-str(colData(ds.deseq)$sample_type) # To see which is the current base level
+
+# To see which is the current base level:
+str(colData(ds.deseq)$sample_type)
+# To indicate the base level: sample_type == normal
 colData(ds.deseq)$sample_type  <- relevel(colData(ds.deseq)$sample_type, "normal")
-str(colData(ds.deseq)$sample_type) # To verify which is the current base level
+# To verify which is the current base level
+str(colData(ds.deseq)$sample_type)
 ```
 
-## 2. Data Exploration
+## 2. Explore the data
 This step is necessary to determine which variables we should control
 
 ### Transformations of the Data
@@ -195,8 +198,9 @@ head(assay(transf.data))
 ######################
 # plotPCAdr function #
 ######################
-# This is the plotPCA function with some improvements made by David Requena
-# To chosse which PCs plot and to use two features for color/shape
+# This is the plotPCA function from DESeq2, made by Wolfgang Huber
+# But including some improvements made by David Requena
+# Now this allows to choose which PCs plot and to use two features for color/shape
 
 plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), returnData = FALSE) 
 {
@@ -303,13 +307,21 @@ rownames(sampleDistMatrix) <- paste(transf.data$id, transf.data$sample_type, sep
 colnames(sampleDistMatrix) <- paste(transf.data$id, transf.data$sample_type, sep = "_")
 
 # Make heatmap based on the Distance matrix (uses all genes)
-# Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
 heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
-          key = TRUE, density.info = "none") #, col=colors)
+          key = TRUE, density.info = "none")
+
+# To personalize the colors, use:
+# Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
+# heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
+          key = TRUE, density.info = "none", col=colors)
+
+# Using a different function, to cluster also by genes
+pheatmap(transf.data, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
+         annotation = data.frame(sampledata[,c(1,6)]))
 ```
 
 
-## 2. Data Analysis
+## 3. Data Analysis
 
 ### Experimental Design
 The model matrix (design) determined above should be specified in this step
@@ -318,7 +330,7 @@ The model matrix (design) determined above should be specified in this step
 # Model Matrix #
 ################
 
-# Define the model (design) to use, controlling by:
+# Define the model (design) to use. In our case, controlling by:
 # lib_prep -> library preparation
 # lib_prep:nested_patient -> patient (obtained by a combination of lib_prep and nested patient)
 # sample_type -> normal, tumor or metastasis
@@ -326,17 +338,16 @@ mm <- model.matrix(~ lib_prep + lib_prep:nested_patient + sample_type, colData(d
 
 # Sometimes the matrix has some columns full of zeros. These should be removed.
 mm <- mm[ , colSums(mm) > 0]
-
 ```
 
 ### Comparison
 ```{r, echo=FALSE}
-# Run DESeq2 using the model defined
+# Run DESeq2 using the model defined above
 ds.deseq <- DESeq(ds.deseq, full=mm,
                   modelMatrixType="standard", betaPrior=FALSE,
                   parallel = TRUE, BPPARAM=BatchJobsParam(workers = 64))
 
-# This will show the possible comparisons, according to the model set before
+# This will show the possible comparisons, according to the design provided
 resultsNames(ds.deseq)
 
 # p value
@@ -373,7 +384,6 @@ genemap <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol", "description")
 idx <- match(res$ensembl, genemap$ensembl_gene_id)
 res$symbol <- genemap$hgnc_symbol[idx]
 res$description <- genemap$description[idx]
-
 ```
 
 This is to visualize a summary of the results and make some output tables in .csv format
@@ -409,6 +419,8 @@ head(res_fold.under.sorted, n = 10)
 write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
 write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
 ```
+## Graphics
+This code is to generate some plots from the results
 
 ```{r, echo=FALSE}
 ################
@@ -420,23 +432,30 @@ cols[(res$log2FoldChange >= 1) & (res$padj < 0.01)] <- "red"
 cols[(res$log2FoldChange <= -1) & (res$padj < 0.01)] <- "blue"
 cols[(res$log2FoldChange >= 1) & (res$padj >= 0.01)] <- "grey60"
 cols[(res$log2FoldChange <= -1) & (res$padj >= 0.01)] <- "grey60"
+
 # Plot
 plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, col = cols, las = 1,
      xlab = "log2(Fold Change)", ylab = "-log10(p adjusted)")
+
+# To add labels (names of the genes)
 # text(x = res$log2FoldChange, y = -log10(res$padj), labels = res$symbol, cex = 0.7)
-# Vertical and horizontal lines
+
+# To draw vertical and horizontal lines
 abline(h = -log10(0.01), col = "grey75")
 abline(v = c(-1, 1), col = "grey75")
-# Title
+
+# To add a title
 title(main = "Metastasis vs Primary")
 
-# Using a different HeatMap function:
-vsd <- getVarianceStabilizedData(ds.deseq)
-vsdp <- vsd[rownames(vsd) %in% rownames(res_sig),]
-pheatmap(vsd, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
-         annotation = data.frame(sampledata[,c(1,4)]))
-pheatmap(vsdp, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
-         annotation = data.frame(sampledata[,c(1,4)]))
+###########
+# HeatMap #
+###########
+# To cluster using a subset of the genes
+# In this case, only the differentially expressed genes passing the cut-off (adjusted p-value)
+# And, coloring by patient and sample type
+transf.data.sig <- transf.data[rownames(transf.data) %in% rownames(res_sig),]
+pheatmap(transf.data.sig, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
+         annotation = data.frame(sampledata[,c(1,6)]))
 ```
 For further guidance, check the DESeq2 Vignette:
 https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
