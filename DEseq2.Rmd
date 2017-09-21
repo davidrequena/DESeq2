@@ -365,7 +365,7 @@ summary(res)
 ```
 
 ### Annotation and output tables
-This block is to add the gene names and description.
+This block is to add the names and description of the genes.
 ```{r, echo=FALSE}
 #####################
 # Adding gene names #
@@ -419,9 +419,10 @@ head(res_fold.under.sorted, n = 10)
 write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
 write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
 ```
-## Graphics
+### Plots
 This code is to generate some plots from the results
 
+#### Volcano Plot
 ```{r, echo=FALSE}
 ################
 # Volcano Plot #
@@ -446,16 +447,20 @@ abline(v = c(-1, 1), col = "grey75")
 
 # To add a title
 title(main = "Metastasis vs Primary")
+```
 
+#### HeatMap
+```{r, echo=FALSE}
 ###########
 # HeatMap #
 ###########
 # To cluster using a subset of the genes
-# In this case, only the differentially expressed genes passing the cut-off (adjusted p-value)
+# In this case, using only the differentially expressed genes passing the cut-off (adjusted p-value)
 # And, coloring by patient and sample type
 transf.data.sig <- transf.data[rownames(transf.data) %in% rownames(res_sig),]
 pheatmap(transf.data.sig, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
          annotation = data.frame(sampledata[,c(1,6)]))
 ```
+
 For further guidance, check the DESeq2 Vignette:
 https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
