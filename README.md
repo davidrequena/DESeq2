@@ -1,10 +1,8 @@
-# DEseq2
-
->Differential expression analysis of RNAseq data using DEseq2.
-
--------------------------------------------------------------------------
+## Differential expression analysis of RNAseq data using DEseq2.
 
 Made by David Requena (drequena@rockefeller.edu) and James Saltsman (jsaltsman@rockefeller.edu).
+
+-------------------------------------------------------------------------
 
 This code includes some basic steps:
 1. SET UP:
