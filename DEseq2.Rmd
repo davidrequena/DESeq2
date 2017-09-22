@@ -194,7 +194,7 @@ head(assay(transf.data))
 ```
 
 ### PCA plot
-```{r, echo=FALSE}
+```{r, eval = TRUE}
 ######################
 # plotPCAdr function #
 ######################
@@ -260,12 +260,25 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
 
 ##############
 
-# Make a PCA plot
-pca <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(1,2))
-pca <- pca + geom_text_repel(aes_string(label = transf.data$id), color = "black",
+# Make PCA plots:
+# PC 1 vs 2
+pca12 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(1,2))
+pca12 <- pca12 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
                              cex=3, nudge_x = -4, nudge_y = 0,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
-print(pca)
+# PC 2 vs 3
+pca23 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(2,3))
+pca23 <- pca23 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
+                             cex=3, nudge_x = -4, nudge_y = 0,
+                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+# PC 3 vs 4
+pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(3,4))
+pca34 <- pca34 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
+                             cex=3, nudge_x = -4, nudge_y = 0,
+                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+pca12
+pca23
+pca34
 
 #This code is to use a simpler method to plot the PCs:
 # pr <- prcomp(t(assay(transf.data)))
@@ -283,13 +296,14 @@ print(pca)
 # Calculate the euclidean distances between samples
 sampleDists <- dist(t(assay(transf.data)))
 
+# Perplexity is set to 4 because this is our average number of samples by patient (neighbors in a set)
 samples.tsne <- tsne(sampleDists, perplexity = 4, max_iter = 10000)
 
 df.tsne <- data.frame(samples.tsne)
 df.tsne$id <- sampledata$id
 df.tsne$library <- sampledata$lib_prep
 df.tsne$patient <- sampledata$patient
-df.tsnet$sample_type <- sampledata$sample_type
+df.tsne$sample_type <- sampledata$sample_type
 
 p.tsne <- ggplot(data = df.tsne) +
   geom_point(aes(x = X1, y = X2, color = sample_type, shape = library), size = 3) +
@@ -313,7 +327,7 @@ heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, 
 # To personalize the colors, use:
 # Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
 # heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
-          key = TRUE, density.info = "none", col=colors)
+#          key = TRUE, density.info = "none", col=colors)
 
 # Using a different function, to cluster also by genes
 pheatmap(transf.data, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
@@ -429,21 +443,27 @@ This code is to generate some plots from the results
 ################
 # Colors
 cols <- rep("black", nrow(res))
-cols[(res$log2FoldChange >= 1) & (res$padj < 0.01)] <- "red"
-cols[(res$log2FoldChange <= -1) & (res$padj < 0.01)] <- "blue"
-cols[(res$log2FoldChange >= 1) & (res$padj >= 0.01)] <- "grey60"
-cols[(res$log2FoldChange <= -1) & (res$padj >= 0.01)] <- "grey60"
+cols[(res$log2FoldChange >= 1) & (res$padj < 0.05)] <- "red"
+cols[(res$log2FoldChange <= -1) & (res$padj < 0.05)] <- "blue"
+cols[(abs(res$log2FoldChange) >= 1) & (res$padj >= 0.05)] <- "grey60"
 
 # Plot
 plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, col = cols, las = 1,
      xlab = "log2(Fold Change)", ylab = "-log10(p adjusted)")
 
-# To add labels (names of the genes)
-# text(x = res$log2FoldChange, y = -log10(res$padj), labels = res$symbol, cex = 0.7)
+# Condition to select just a group of genes
+cond1 <- !( (abs(res$log2FoldChange) <= 1) | (res$padj > 0.05) )
+cond2 <- !( (abs(res$log2FoldChange) <= 3) & (res$padj > 0.0001) )
+cond <- cond1 & cond2
+# To add labels (names of the genes):
+text(x = res$log2FoldChange[cond], y = -log10(res$padj[cond]) + 0.1,
+     labels = res$symbol[cond], cex = 0.7)
 
 # To draw vertical and horizontal lines
-abline(h = -log10(0.01), col = "grey75")
-abline(v = c(-1, 1), col = "grey75")
+abline(h = -log10(0.05), col = "green")
+abline(v = c(-1, 1), col = "green")
+abline(h = -log10(0.0001), col = "grey75")
+abline(v = c(-3, 3), col = "grey75")
 
 # To add a title
 title(main = "Metastasis vs Primary")
