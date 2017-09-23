@@ -438,35 +438,64 @@ This code is to generate some plots from the results
 
 #### Volcano Plot
 ```{r, echo=FALSE}
-################
-# Volcano Plot #
-################
+
 # Colors
 cols <- rep("black", nrow(res))
 cols[(res$log2FoldChange >= 1) & (res$padj < 0.05)] <- "red"
 cols[(res$log2FoldChange <= -1) & (res$padj < 0.05)] <- "blue"
 cols[(abs(res$log2FoldChange) >= 1) & (res$padj >= 0.05)] <- "grey60"
 
-# Plot
-plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, col = cols, las = 1,
-     xlab = "log2(Fold Change)", ylab = "-log10(p adjusted)")
-
 # Condition to select just a group of genes
 cond1 <- !( (abs(res$log2FoldChange) <= 1) | (res$padj > 0.05) )
 cond2 <- !( (abs(res$log2FoldChange) <= 3) & (res$padj > 0.0001) )
 cond <- cond1 & cond2
-# To add labels (names of the genes):
-text(x = res$log2FoldChange[cond], y = -log10(res$padj[cond]) + 0.1,
-     labels = res$symbol[cond], cex = 0.7)
+cond[is.na(cond)] <- FALSE
 
-# To draw vertical and horizontal lines
-abline(h = -log10(0.05), col = "green")
-abline(v = c(-1, 1), col = "green")
-abline(h = -log10(0.0001), col = "grey75")
-abline(v = c(-3, 3), col = "grey75")
+# To fill the empty labels
+res$symbol[is.na(res$symbol) | (res$symbol == "")] <- "NS"
 
-# To add a title
-title(main = "Metastasis vs Primary")
+############################
+# Traditional Volcano Plot #
+############################
+# plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, col = cols, las = 1,
+#      xlab = "log2(Fold Change)", ylab = "-log10(p adjusted)")
+# 
+# # To add labels (names of the genes):
+# text(x = res$log2FoldChange[cond], y = -log10(res$padj[cond]) + 0.1,
+#      labels = res$symbol[cond], cex = 0.7)
+# 
+# # To draw vertical and horizontal lines
+# abline(h = -log10(0.05), col = "green")
+# abline(v = c(-1, 1), col = "green")
+# abline(h = -log10(0.0001), col = "grey75")
+# abline(v = c(-3, 3), col = "grey75")
+# 
+# # To add a title
+# title(main = "Metastasis vs Primary")
+
+#############################################
+# Volcano Plot using ggplot2 and text repel #
+#############################################
+p.volcano <- ggplot() + theme_bw() + scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,0), limits = c(0, max(-log10(res$padj), na.rm = TRUE) + 1) ) +
+  geom_vline(xintercept = c(-1,1), colour = "darkgreen", alpha = 0.7, linetype = 2) +
+  geom_hline(yintercept = c(-log10(0.05)), colour = "darkgreen", alpha = 0.7, linetype = 2) +
+  geom_point(data = data.frame(res),
+             aes(x = res$log2FoldChange, y = -log10(res$padj)), color = cols,
+             size = 1, na.rm = TRUE, show.legend = TRUE) +
+  geom_text_repel(aes( x = res$log2FoldChange[cond], y = -log10(res$padj[cond]), label = res$symbol[cond] ),
+                  inherit.aes = FALSE, parse = FALSE, max.iter = 5000, color = "black", cex = 4,
+                  nudge_x = 0, nudge_y = 0.1, segment.alpha = 0.5, segment.size = 0.5,
+                  arrow = arrow(length = unit(0.005, "npc"), type = "closed"),
+                  box.padding = unit(0.1, "lines"), min.segment.length = unit(0.2, "lines")) +
+  labs(x = expression("log"[2]*"(Fold Change)"),
+       y = expression("-log"[10]*"(p adjusted)"),
+       title = "Metastasis / Primary tumors") +
+  scale_colour_manual(name = "Legend", 
+                      breaks = c("Overexpressed", "Underexpressed", "Not significant", "Fold change < 2"),
+                      values = c("red", "blue", "grey60", "black"))
+
+p.volcano
 ```
 
 #### HeatMap
