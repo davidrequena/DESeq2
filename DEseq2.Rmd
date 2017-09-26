@@ -364,8 +364,10 @@ ds.deseq <- DESeq(ds.deseq, full=mm,
 # This will show the possible comparisons, according to the design provided
 resultsNames(ds.deseq)
 
-# p value
+# Cut off p-value
 cutoff_alpha <- 0.05
+# Cut off fold-change
+cutoff_fold <- 1
 
 # Get the result of a certain comparison (see "help(results)" for info on this)
 #res <- results(ds.deseq, contrast=c("sample_type", "primary", "normal"),
@@ -413,16 +415,16 @@ write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_full.csv")
 head(res, n = 10)
 
 table(res$padj < cutoff_alpha)
-table(abs(res$log2FoldChange) >= 1)
-table((abs(res$log2FoldChange) >= 1) & (res$padj < cutoff_alpha))
+table(abs(res$log2FoldChange) >= cutoff_fold)
+table((abs(res$log2FoldChange) >= cutoff_fold) & (res$padj < cutoff_alpha))
 
 res_sig <- subset(res, ( (padj < cutoff_alpha) & !is.na(padj) ))
 summary(res_sig)
 head(res_sig, n = 10)
 #write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_sig.csv")
 
-res_fold.over <- subset(res_sig, log2FoldChange >= 1)
-res_fold.under <- subset(res_sig, log2FoldChange <= -1)
+res_fold.over <- subset(res_sig, log2FoldChange >= cutoff_fold)
+res_fold.under <- subset(res_sig, log2FoldChange <= -cutoff_fold)
 
 res_fold.over.sorted <- res_fold.over[order(-res_fold.over$log2FoldChange, na.last=TRUE), ]
 res_fold.under.sorted <- res_fold.under[order(res_fold.under$log2FoldChange, na.last=TRUE), ]
@@ -439,25 +441,70 @@ This code is to generate some plots from the results
 #### Volcano Plot
 ```{r, echo=FALSE}
 
+# New data frame for the volcano plot
+d.volcano <- data.frame(res)
+# To remove empty adjusted p-values
+d.volcano <- d.volcano[!is.na(d.volcano$padj), ]
+# To fill the empty labels
+d.volcano$symbol[is.na(d.volcano$symbol) | (d.volcano$symbol == "")] <- "NS"
+
+# Additional cut-offs. The script will only plot the labels of the
+# data points passing the "nice" cutoff, for a better visualization
+ctf_nice <- cutoff_alpha / 500
+fld_nice <- cutoff_fold * 3
+
 # Colors
-cols <- rep("black", nrow(res))
-cols[(res$log2FoldChange >= 1) & (res$padj < 0.05)] <- "red"
-cols[(res$log2FoldChange <= -1) & (res$padj < 0.05)] <- "blue"
-cols[(abs(res$log2FoldChange) >= 1) & (res$padj >= 0.05)] <- "grey60"
+d.volcano$colors <- rep("other", nrow(d.volcano))
+d.volcano$colors[(abs(d.volcano$log2FoldChange) <= cutoff_fold) & (d.volcano$padj >= cutoff_alpha)] <- "worst"
+d.volcano$colors[(abs(d.volcano$log2FoldChange) <= cutoff_fold) & (d.volcano$padj <= cutoff_alpha)] <- "middle"
+d.volcano$colors[(d.volcano$log2FoldChange >= cutoff_fold) & (d.volcano$padj < cutoff_alpha)] <- "over"
+d.volcano$colors[(d.volcano$log2FoldChange <= -cutoff_fold) & (d.volcano$padj < cutoff_alpha)] <- "under"
 
 # Condition to select just a group of genes
-cond1 <- !( (abs(res$log2FoldChange) <= 1) | (res$padj > 0.05) )
-cond2 <- !( (abs(res$log2FoldChange) <= 3) & (res$padj > 0.0001) )
+cond1 <- !( (abs(d.volcano$log2FoldChange) <= cutoff_fold) | (d.volcano$padj > cutoff_alpha) )
+cond2 <- !( (abs(d.volcano$log2FoldChange) <= fld_nice) & (d.volcano$padj > ctf_nice) )
 cond <- cond1 & cond2
-cond[is.na(cond)] <- FALSE
 
-# To fill the empty labels
-res$symbol[is.na(res$symbol) | (res$symbol == "")] <- "NS"
+#############################################
+# Volcano Plot using ggplot2 and text repel #
+#############################################
+p.volcano <- ggplot() + theme_bw() +
+  scale_y_continuous(expand=c(0,0), limits = c(0, max(-log10(d.volcano$padj)) + 1) ) +
+    geom_vline(xintercept = c(-cutoff_fold, cutoff_fold), colour = "red", alpha = 0.8, linetype = 2) +
+  geom_hline(yintercept = c(-log10(cutoff_alpha)), colour = "red", alpha = 0.8, linetype = 2) +
+  geom_rect(aes(xmin = -fld_nice, xmax = fld_nice, ymin = 0, ymax = -log10(cutoff_alpha)),
+            fill="mistyrose", alpha = 0.4, inherit.aes = FALSE) +
+  geom_rect(aes(xmin = -cutoff_fold, xmax = cutoff_fold, ymin = 0, ymax = -log10(ctf_nice)),
+            fill="mistyrose", alpha = 0.4, inherit.aes = FALSE) +
+  geom_rect(aes(xmin = -fld_nice, xmax = -cutoff_fold, ymin = -log10(cutoff_alpha), ymax = -log10(ctf_nice)),
+            fill="lightgoldenrodyellow", alpha = 0.5, inherit.aes = FALSE) +
+  geom_rect(aes(xmin = cutoff_fold, xmax = fld_nice, ymin = -log10(cutoff_alpha), ymax = -log10(ctf_nice)),
+            fill="lightgoldenrodyellow", alpha = 0.5, inherit.aes = FALSE) +
+  geom_point(data = d.volcano, aes(x = d.volcano$log2FoldChange, y = -log10(d.volcano$padj), fill = d.volcano$colors),
+             size = 1.5, pch=21, color = "gray10", alpha = 0.7, show.legend = TRUE) +
+  scale_fill_manual(name = "Relative expression",
+                     values = c("over" = "springgreen",
+                                "under" = "deepskyblue",
+                                "middle" = "yellow",
+                                "worst" = "firebrick1",
+                                "other" = "tan1"),
+                     breaks = c("over", "under"), labels = c("Overexpressed", "Underexpressed")) +
+  guides(fill = guide_legend(override.aes = list(size=8))) + theme(legend.position = c(0.90, 0.92)) +
+  geom_text_repel(aes( x = d.volcano$log2FoldChange[cond], y = -log10(d.volcano$padj[cond]), label = d.volcano$symbol[cond] ),
+                  inherit.aes = FALSE, parse = FALSE, max.iter = 5000, color = "black", cex = 4,
+                  nudge_x = 0, nudge_y = 0.1, segment.alpha = 0.5, segment.size = 0.5,
+                  arrow = arrow(length = unit(0.005, "npc"), type = "closed"),
+                  box.padding = unit(0.1, "lines"), min.segment.length = unit(0.01, "lines")) +
+  labs(x = expression("log"[2]*"(Fold Change)"),
+       y = expression("-log"[10]*"(p adjusted)"),
+       title = "Metastasis / Primary tumors")
+
+p.volcano
 
 ############################
 # Traditional Volcano Plot #
 ############################
-# plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, col = cols, las = 1,
+# plot(res$log2FoldChange, -log10(res$padj), pch = 16, cex = 0.5, las = 1,
 #      xlab = "log2(Fold Change)", ylab = "-log10(p adjusted)")
 # 
 # # To add labels (names of the genes):
@@ -467,35 +514,11 @@ res$symbol[is.na(res$symbol) | (res$symbol == "")] <- "NS"
 # # To draw vertical and horizontal lines
 # abline(h = -log10(0.05), col = "green")
 # abline(v = c(-1, 1), col = "green")
-# abline(h = -log10(0.0001), col = "grey75")
-# abline(v = c(-3, 3), col = "grey75")
+# abline(h = -log10(0.0001), col = "grey35")
+# abline(v = c(-3, 3), col = "grey35")
 # 
 # # To add a title
 # title(main = "Metastasis vs Primary")
-
-#############################################
-# Volcano Plot using ggplot2 and text repel #
-#############################################
-p.volcano <- ggplot() + theme_bw() + scale_x_continuous(expand=c(0,0)) +
-  scale_y_continuous(expand=c(0,0), limits = c(0, max(-log10(res$padj), na.rm = TRUE) + 1) ) +
-  geom_vline(xintercept = c(-1,1), colour = "darkgreen", alpha = 0.7, linetype = 2) +
-  geom_hline(yintercept = c(-log10(0.05)), colour = "darkgreen", alpha = 0.7, linetype = 2) +
-  geom_point(data = data.frame(res),
-             aes(x = res$log2FoldChange, y = -log10(res$padj)), color = cols,
-             size = 1, na.rm = TRUE, show.legend = TRUE) +
-  geom_text_repel(aes( x = res$log2FoldChange[cond], y = -log10(res$padj[cond]), label = res$symbol[cond] ),
-                  inherit.aes = FALSE, parse = FALSE, max.iter = 5000, color = "black", cex = 4,
-                  nudge_x = 0, nudge_y = 0.1, segment.alpha = 0.5, segment.size = 0.5,
-                  arrow = arrow(length = unit(0.005, "npc"), type = "closed"),
-                  box.padding = unit(0.1, "lines"), min.segment.length = unit(0.2, "lines")) +
-  labs(x = expression("log"[2]*"(Fold Change)"),
-       y = expression("-log"[10]*"(p adjusted)"),
-       title = "Metastasis / Primary tumors") +
-  scale_colour_manual(name = "Legend", 
-                      breaks = c("Overexpressed", "Underexpressed", "Not significant", "|Fold change| < 2"),
-                      values = c("red", "blue", "grey60", "black"))
-
-p.volcano
 ```
 
 #### HeatMap
