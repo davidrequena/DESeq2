@@ -51,7 +51,7 @@ library("ggplot2")
 library("ggrepel")
 library("tsne")
 library("pheatmap")
-
+library("grDevices")
 ```
 
 ### Input sample metadata
@@ -64,7 +64,7 @@ knitr::opts_knit$set(root.dir = "../RNAseq_data") # <<<------------- *** WORKING
 
 # The samples' data and the counts' table must be in your working directory
 sample_data <- "samples_data.tsv"
-counts <- "counts.tsv"
+counts_data <- "counts_data.tsv"
 ```
 
 This block is to read the samples' data.
@@ -97,7 +97,7 @@ There is also an option to filter out some genes (blacklist).
 # Input counts table #
 ######################
 
-countstable <- data.frame(read.csv(counts, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
+countstable <- data.frame(read.csv(counts_data, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
 
 # Filter out some genes:
 # black_list = c("ENSG00000142173", "ENSG00000130203", "ENSG00000142798", "ENSG00000178209", "ENSG00000172889","ENSG00000147813", "ENSG00000178814", "ENSG00000159069", "ENSG00000182871", "ENSG00000188157", "ENSG00000176978", "ENSG00000167701", "ENSG00000099795", "ENSG00000196924", "ENSG00000176919", "ENSG00000138080", "ENSG00000179403", "ENSG00000164880", "ENSG00000178685", "ENSG00000008710", "ENSG00000182327", "ENSG00000118137", "ENSG00000107331", "ENSG00000166183", "ENSG00000099624", "ENSG00000162337")
@@ -179,7 +179,7 @@ str(colData(ds.deseq)$sample_type)
 ```
 
 ## 2. Explore the data
-This step is necessary to determine which variables we should control
+This step is necessary to determine which variables we should control by
 
 ### Transformations of the Data
 To adjust by known effects
@@ -532,6 +532,52 @@ p.volcano
 transf.data.sig <- transf.data[rownames(transf.data) %in% rownames(res_sig),]
 pheatmap(transf.data.sig, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
          annotation = data.frame(sampledata[,c(1,6)]))
+```
+
+#### BoxPlot and ScatterPlot
+```{r, echo=FALSE}
+###########
+# BoxPlot #
+###########
+
+# This function will plot a Boxplot and also the datapoints
+plotDR_bygene <- function (genename = NULL, symbol = NULL)
+{
+  # Extracting the vector of counts for that gene
+  gene_counts <- counts(ds.deseq, normalized = TRUE)[genename,]
+  
+  # Making a dataframe for the plot
+  df.box <- data.frame(ds.deseq@colData[, c("id", "lib_prep", "sample_type", "patient")], gene_counts)
+  
+  # Re-ordering sample_type for the plot
+  df.box$sample_type <- factor(df.box$sample_type, c("normal", "primary", "metastasis"))
+  
+  # This combines lib_prep and sample_type in a new variable
+  df.box$lib_sample <- interaction(df.box$lib_prep, df.box$sample_type)
+  
+  # Plot
+  p.bs <- ggplot(df.box, aes(x = df.box$sample_type, y = log2(df.box$gene_counts))) +
+    theme_bw() + geom_boxplot(width = 0.4) +
+    geom_point(aes(fill = df.box$sample_type),
+               size = 2.5, alpha = 0.75, pch = 21, color = "black",
+               position = position_jitter(width = 0.1)) +
+    labs(x = expression("Sample Type"),
+         y = expression("log"[2]*"(Gene Counts)"),
+         title = paste0("Gene: ", symbol, " (", genename, ")"))
+  p.bs
+}
+
+#interesting_genes <- data.frame(read.csv("genes_overexp.tsv", sep = "\t", header = TRUE))
+interesting_genes <- data.frame(read.csv("genes_underexp.tsv", sep = "\t", header = TRUE))
+
+for (i in 1:nrow(interesting_genes)) {
+  ggsave(paste0("By_Gene/Underexp/", interesting_genes[i, 2], ".jpg"),
+         plotDR_bygene(toString(interesting_genes[i, 1]), toString(interesting_genes[i, 2])),
+         width = 16, height = 10, dpi = 300)
+}
+
+
+#aes(shape = df.box$lib_prep)
 ```
 
 For further guidance, check the DESeq2 Vignette:
