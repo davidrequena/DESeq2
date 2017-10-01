@@ -445,6 +445,10 @@ This code is to generate some plots from the results
 d.volcano <- data.frame(res)
 # To remove empty adjusted p-values
 d.volcano <- d.volcano[!is.na(d.volcano$padj), ]
+
+# To reduce the range of the volcano plot, for posters
+#d.volcano <- d.volcano[(abs(d.volcano$log2FoldChange) < 8) & (-log10(d.volcano$padj) < 7.5), ]
+
 # To fill the empty labels
 d.volcano$symbol[is.na(d.volcano$symbol) | (d.volcano$symbol == "")] <- "NS"
 
@@ -557,13 +561,14 @@ plotDR_bygene <- function (genename = NULL, symbol = NULL)
   
   # Plot
   p.bs <- ggplot(df.box, aes(x = df.box$sample_type, y = log2(df.box$gene_counts))) +
-    theme_bw() + geom_boxplot(width = 0.4) +
+    theme_bw() + geom_boxplot(width = 0.4, fill = "gray90") +
     geom_point(aes(fill = df.box$sample_type),
-               size = 2.5, alpha = 0.75, pch = 21, color = "black",
+               size = 3, alpha = 0.75, pch = 21, color = "black",
                position = position_jitter(width = 0.1)) +
     labs(x = expression("Sample Type"),
-         y = expression("log"[2]*"(Gene Counts)"),
-         title = paste0("Gene: ", symbol, " (", genename, ")"))
+         y = expression("log"[2]*"(Normalized Gene Counts)"),
+         title = paste0("Gene: ", symbol, " (", genename, ")")) +
+    scale_fill_discrete(name = "Sample Type")
   p.bs
 }
 
@@ -575,7 +580,6 @@ for (i in 1:nrow(interesting_genes)) {
          plotDR_bygene(toString(interesting_genes[i, 1]), toString(interesting_genes[i, 2])),
          width = 16, height = 10, dpi = 300)
 }
-
 
 #aes(shape = df.box$lib_prep)
 ```
