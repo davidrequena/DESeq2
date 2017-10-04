@@ -6,7 +6,7 @@ Made by David Requena (drequena@rockefeller.edu) and James Saltsman (jsaltsman@r
 
 This code includes some basic steps:
 1. SET UP:
-* Installation and/or calling the libraries
+* Install and/or call the required libraries
 * Input sample metadata
 * Create the DEseq2 object
 2. Explore the data:
@@ -15,7 +15,7 @@ This code includes some basic steps:
 * tSNE plot
 * HeatMap
 3. Data Analysis:
-* Experimental Design
+* Model Matrix
 * Comparison
 * Annotation and output tables
 * Plots
