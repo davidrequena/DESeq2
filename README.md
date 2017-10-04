@@ -15,7 +15,7 @@ This code includes some basic steps:
 * tSNE plot
 * HeatMap
 3. Data Analysis:
-* Model Matrix
+* Model matrix
 * Comparison
 * Annotation and output tables
 * Plots
