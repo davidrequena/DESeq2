@@ -62,7 +62,9 @@ In this block, you just need to change the working directory:
 # require("knitr")
 knitr::opts_knit$set(root.dir = "../RNAseq_data") # <<<------------- *** WORKING DIRECTORY ***
 
-# The samples' data and the counts' table must be in your working directory
+# These two tables have to be in your working directory:
+# - A table containing the samples' data (features of interest) and
+# - A table with the gene counts by sample
 sample_data <- "samples_data.tsv"
 counts_data <- "counts_data.tsv"
 ```
@@ -542,6 +544,9 @@ pheatmap(transf.data.sig, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k 
 ```
 
 #### BoxPlot and ScatterPlot
+After the differential expression analysis, the genes of interest can be further analyzed individually using
+boxplot and scatterplots.
+
 ```{r, echo=FALSE}
 ###########
 # BoxPlot #
@@ -575,9 +580,11 @@ plotDR_bygene <- function (genename = NULL, symbol = NULL)
   p.bs
 }
 
+# The genes of interest will be provided in a .tsv table:
 #interesting_genes <- data.frame(read.csv("genes_overexp.tsv", sep = "\t", header = TRUE))
 interesting_genes <- data.frame(read.csv("genes_underexp.tsv", sep = "\t", header = TRUE))
 
+# Then, this loop will make and save the plots for all the genes in the table
 for (i in 1:nrow(interesting_genes)) {
   ggsave(paste0("By_Gene/Underexp/", interesting_genes[i, 2], ".jpg"),
          plotDR_bygene(toString(interesting_genes[i, 1]), toString(interesting_genes[i, 2])),
