@@ -100,7 +100,7 @@ There is also an option to filter out some genes (blacklist).
 countstable <- data.frame(read.csv(counts_data, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
 
 # Filter out some genes in a pre defined black list:
-black_list <- data.frame(read.csv("black_list.tsv", sep = "\t", header = TRUE))
+blacklist <- data.frame(read.csv("blacklist.tsv", sep = "\t", header = TRUE))
 countstable <- countstable[!(countstable[,1] %in% black_list[,1]), ]
 
 # Save the gene list, to be used later as row names:
