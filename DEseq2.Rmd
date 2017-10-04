@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 1. SET UP
 
-### Installing and/or calling the libraries
+### Install and/or call the required libraries
 
 This first block is just to install the dependencies. If already installed, just left this commented.
 
@@ -99,11 +99,9 @@ There is also an option to filter out some genes (blacklist).
 
 countstable <- data.frame(read.csv(counts_data, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
 
-# Filter out some genes:
-# black_list = c("ENSG00000142173", "ENSG00000130203", "ENSG00000142798", "ENSG00000178209", "ENSG00000172889","ENSG00000147813", "ENSG00000178814", "ENSG00000159069", "ENSG00000182871", "ENSG00000188157", "ENSG00000176978", "ENSG00000167701", "ENSG00000099795", "ENSG00000196924", "ENSG00000176919", "ENSG00000138080", "ENSG00000179403", "ENSG00000164880", "ENSG00000178685", "ENSG00000008710", "ENSG00000182327", "ENSG00000118137", "ENSG00000107331", "ENSG00000166183", "ENSG00000099624", "ENSG00000162337")
-# for (gene in black_list) {
-#   countstable <- countstable[(countstable[,1] != gene), ]
-# }
+# Filter out some genes in a pre defined black list:
+black_list <- data.frame(read.csv("black_list.tsv", sep = "\t", header = TRUE))
+countstable <- countstable[!(countstable[,1] %in% black_list[,1]), ]
 
 # Save the gene list, to be used later as row names:
 generows <- unlist(countstable[,1], use.names=FALSE)
@@ -276,6 +274,8 @@ pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop = 
 pca34 <- pca34 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
                              cex=3, nudge_x = -4, nudge_y = 0,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+
+# Show the 3 PCA plots made
 pca12
 pca23
 pca34
@@ -337,20 +337,23 @@ pheatmap(transf.data, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 10
 
 ## 3. Data Analysis
 
-### Experimental Design
-The model matrix (design) determined above should be specified in this step
+### Model matrix
+Using the variables chosen from the results above, a model will be determined.
+A matrix representing this model is provided to DEseq in this step.
 ```{r, echo=FALSE}
 ################
 # Model Matrix #
 ################
 
-# Define the model (design) to use. In our case, controlling by:
-# lib_prep -> library preparation
-# lib_prep:nested_patient -> patient (obtained by a combination of lib_prep and nested patient)
-# sample_type -> normal, tumor or metastasis
+# Define the model (design) to use. In our case, our variable of interest is the sample type
+# (normal, tumor or metastasis). But, we have to control by:
+# library preparation -> lib_prep
+# patient -> lib_prep:nested_patient
+# Due patient is collinear with library prep, this should be represented by a combination
+# of lib_prep and a secondary variable (nested patient)
 mm <- model.matrix(~ lib_prep + lib_prep:nested_patient + sample_type, colData(ds.deseq))
 
-# Sometimes the matrix has some columns full of zeros. These should be removed.
+# Sometimes, the resulting matrix has columns full of zeros. These should be removed:
 mm <- mm[ , colSums(mm) > 0]
 ```
 
