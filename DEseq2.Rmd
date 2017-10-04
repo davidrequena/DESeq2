@@ -1,7 +1,7 @@
 ---
 title: "Differential expression analysis using DEseq2"
 author: "David Requena and Jamie Saltsman"
-date: "09/21/2017"
+date: "10/04/2017"
 output: html_document
 ---
 
@@ -30,10 +30,10 @@ This first block is just to install the dependencies. If already installed, just
  
 #source("https://bioconductor.org/biocLite.R")
 # biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
-# biocLite("BiocParallel", build_vignettes=TRUE, dependencies=TRUE)
-# biocLite("DESeq2", build_vignettes=TRUE, dependencies=TRUE)
-# biocLite("biomaRt", build_vignettes=TRUE, dependencies=TRUE)
-# biocLite("pheatmap", build_vignettes=TRUE, dependencies=TRUE)
+# biocLite("BiocParallel", dependencies=TRUE)
+# biocLite("DESeq2", dependencies=TRUE)
+# biocLite("biomaRt", dependencies=TRUE)
+# biocLite("pheatmap", dependencies=TRUE)
 ```
 This block is to call all the required libraries:
 
@@ -79,10 +79,11 @@ There is also an option to work with subsets.
 
 sampledata <- data.frame(read.csv(sample_data, sep = "\t", header = TRUE))
 
-# The next two lines are only necessary if you're planning to work with a subset of the data:
+# The next three lines are examples of how to work with a subset of the data:
 #sampledata <- sampledata[sampledata$library_prep!=0,]
 #sampledata <- sampledata[sampledata$have_npm=="Y",]
 #sampledata <- sampledata[sampledata$normal_pm=="Y",]
+
 sampledata$library_prep <- factor(sampledata$library_prep)
 droplevels(sampledata$id)
 
@@ -103,7 +104,7 @@ countstable <- data.frame(read.csv(counts_data, sep = "\t", header = FALSE), str
 
 # Filter out some genes in a pre defined black list:
 blacklist <- data.frame(read.csv("blacklist.tsv", sep = "\t", header = TRUE))
-countstable <- countstable[!(countstable[,1] %in% black_list[,1]), ]
+countstable <- countstable[!(countstable[,1] %in% blacklist[,1]), ]
 
 # Save the gene list, to be used later as row names:
 generows <- unlist(countstable[,1], use.names=FALSE)
