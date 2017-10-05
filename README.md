@@ -9,7 +9,7 @@ This code includes some basic steps:
 * Install and/or call the required libraries
 * Input sample metadata
 * Create the DEseq2 object
-2. Explore the data:
+2. Exploring the data:
 * Transformations of the Data
 * PCA plot
 * tSNE plot
