@@ -144,7 +144,9 @@ This block is to explore the distribution of counts by sample
 ##################################################
 
 # Histogram of the samples with zero counts
-h <- hist(rowSums(countstable.num == 0), breaks = seq(-0.5, ncol(countstable.num) + 0.5, 1), labels = TRUE)
+h <- hist(rowSums(countstable.num == 0),
+          breaks = seq(-0.5, ncol(countstable.num) + 0.5, 1),
+          labels = TRUE)
 
 # To inspect the values
 h
@@ -307,13 +309,15 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   #   ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance"))
 }
 
-##############
-# Make some PCA plots:
+#######################
+# Make some PCA plots #
+#######################
 
 # This code is to use a simpler method to plot the PCs:
 pr <- prcomp(t(assay(transf.data)))
 
-# This code is to use the function defined above
+
+# The folowwing code is to use the function defined above
 
 # PC 1 vs 2
 pca12 <- plotPCAdr(transf.data,
@@ -345,6 +349,10 @@ pca34 <- pca34 + geom_text_repel(aes_string(label = transf.data$id), color = "bl
 #############################
 # Show the 3 PCA plots made #
 #############################
+
+# It's important to examine first the figures with the samples completely de-identified,
+# to see if you can recognize any cluster from the plot.
+# In the following plots, the de-identified version is printed before the identified one:
 
 # PC 1 vs 2:
 ############
@@ -411,7 +419,7 @@ p.tsne <- ggplot(data = df.tsne) + theme_bw() +
 p.tsne
 
 # This is a bigger version of the plot, recommended for posters
-# Warning: set appropriate for the legend according to your plot
+# Warning: set appropriate coordinates for the legend, according to your desired plot size
 p.tsne_big <- ggplot(data = df.tsne, aes(x = X1, y = X2)) +
   geom_point(aes(fill = sample_type, shape = library), size = 12, alpha = 0.9) + theme_bw() +
   scale_shape_manual(values = c(21, 22, 23, 24)) + scale_fill_manual(values = nice_colors) +
@@ -426,9 +434,6 @@ p.tsne_big
 ggsave("Plots/tSNE_clean.jpg", p.tsne, width = 16, height = 10, dpi = 300)
 ggsave("Plots/tSNE.jpg", p.tsne, width = 16, height = 10, dpi = 300)
 ggsave("Plots/tSNE_big.jpg", p.tsne, width = 8.5, height = 7, dpi = 300)
-
-# To include text inside the circles:
-
 ```
 
 ### HeatMap
@@ -451,7 +456,6 @@ heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, 
 pheatmap(transf.data, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
          annotation = data.frame(sampledata[,c(1,6)]))
 ```
-
 
 ## 3. Data Analysis
 
