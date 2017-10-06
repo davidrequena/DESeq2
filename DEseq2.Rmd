@@ -27,6 +27,7 @@ This first block is just to install the dependencies. If already installed, just
 # install.packages('ggrepel')
 # install.packages('tsne')
 # install.packages('BatchJobs')
+# install.packages('gridExtra')
  
 #source("https://bioconductor.org/biocLite.R")
 # biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
@@ -49,6 +50,7 @@ library("RColorBrewer")
 library("gplots")
 library("ggplot2")
 library("ggrepel")
+library("gridExtra")
 library("tsne")
 library("pheatmap")
 library("grDevices")
@@ -114,37 +116,90 @@ invisible(droplevels(generows))
 # This column contains the gene names, we don't need it anymore:
 countstable[,1] <- NULL
 
-# To sort the table by sample name:
+# Sort the table by sample name:
 countstable.sorted <- countstable[,order(countstable[1,])]
 
 # Save the samples list, to be used later as column names:
 genecols <- unlist(countstable.sorted[1,], use.names=FALSE)
 droplevels(genecols)
 
-# To convert the countstable from text to numbers, any string should be removed (names on the first row):
+# Convert the values on the table from characters to numbers:
+# First, any string should be removed (names on the first row)
 countstable.sorted <- countstable.sorted[-1,]
-
-# Convert the table from characters to numeric:
+# Then, do the conversion
 countstable.num <- as.data.frame(apply(countstable.sorted, c(1,2), as.integer))
-
-# Then, add the row and column names:
+# Finally, add the row and column names:
 rownames(countstable.num) <- generows
 colnames(countstable.num) <- genecols
 
-# This line is to filter the countstable, only necessary if you're working with a subset of the sampledata:
+# If the sampledata table were filtered in the chunk above,
+# this line is to filter the countstable
+# If not, this line will do nothing
 countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
+```
+This block is to explore the distribution of counts by sample
+```{r, echo=FALSE}
+##################################################
+# Exploring the distribution of counts by sample #
+##################################################
 
-# To remove empty rows:
-countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
+# Histogram of the samples with zero counts
+h <- hist(rowSums(countstable.num == 0), breaks = seq(-0.5, ncol(countstable.num) + 0.5, 1), labels = TRUE)
+
+# To inspect the values
+h
+
+# To plot the histogram of the total number of samples
+plot(h, xaxp = c(0, ncol(countstable.num), ncol(countstable.num)), labels = TRUE,
+     main = paste0("Histogram of samples with no counts, by gene\n(Total number of samples = ",
+                   ncol(countstable.num), ")"),
+     xlab = "Number of samples with no counts", ylab = "Number of genes")
+abline(v = ncol(countstable.num) - 0.5, col = "red", lty = 2)
+abline(v = ncol(countstable.num) - 1.5, col = "orange", lty = 2)
+text(ncol(countstable.num) - 0.1, tail(h$counts, 1) * 1.2, col = "red", srt = 60,
+     label = paste0(round(tail(h$counts, 1) * 100 / nrow(countstable.num), digits = 2), "%"))
+text(ncol(countstable.num) - 1.1, tail(h$counts, 1) * 1.15, col = "orange", srt = 60,
+     label = paste0(round(sum(tail(h$counts, 2)) * 100 / nrow(countstable.num), digits = 2), "%"))
 ```
 
-The following block is only necessary if you wanna apply an independent prior filtering before the differential expression analysis
+Prior Filtering
 ```{r, echo=FALSE}
+
+# Remove empty rows:
+countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
+
+# You should remove also those genes with counts in only one sample.
+# But there have to be a rationale for this. Check first those cases,
+# to determine if this is reasonable to drop them or not.
+# To check the counts in those samples, uncomment the next two lines:
+# genes_1sample <- countstable.num[rowSums(countstable.num > 0) == 1, ]
+# genes_1sample$sum <-rowSums(genes_1sample)
+
+# To get their names and functions, uncomment the next 9 lines:
+# ensembl = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+# genemap <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol", "description"),
+#                  filters = "ensembl_gene_id",
+#                  values = rownames(genes_1sample),
+#                  mart = ensembl)
+# 
+# indx <- match(rownames(genes_1sample), genemap$ensembl_gene_id)
+# genes_1sample$symbol <- genemap$hgnc_symbol[indx]
+# genes_1sample$description <- genemap$description[indx]
+
+# Remove those rows (genes) with only one sample with counts:
+countstable.num <- countstable.num[rowSums(countstable.num > 0) > 1, ]
+
+# The rest of the code in this block is only necessary if you wanna apply an additional
+# independent prior filtering before the differential expression analysis:
+
 ##########################################
 # Independent prior filtering (optional) #
 ##########################################
 
-# To remove any gene with 0 reads in at least one sample (i.e. considering only transcripts present in all the samples)
+# Two additional types of prior filtering are provided, as examples:
+
+# Remove any gene with 0 reads in at least one sample (using a different code)
+# (i.e. considering only transcripts present in all the samples)
 # countstable.num <- cbind(countstable.num, 1)
 # for (i in 1:(ncol(countstable.num) - 1)) {
 #   countstable.num$`1` <- countstable.num$`1` * countstable.num[,i]
@@ -152,7 +207,7 @@ The following block is only necessary if you wanna apply an independent prior fi
 # countstable.num <- countstable.num[countstable.num$`1` != 0,]
 # countstable.num$`1` <- NULL
 
-# To work using only transcripts with more than 5 reads in all the samples
+# Remove genes with less than 5 reads in every sample
 # countstable.num <- countstable.num[apply(countstable.num, 1, function(row) (all(row > 5))),]
 ```
 
@@ -168,8 +223,6 @@ ds.deseq <- DESeqDataSetFromMatrix(
   countData = countstable.num,
   colData = sampledata,
   design = ~ sample_type)
-  #design = ~ library_prep + sample_type)
-
 
 # To see which is the current base level:
 str(colData(ds.deseq)$sample_type)
@@ -208,16 +261,14 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   PC_x <- paste("PC", PCs[1], sep = "")
   PC_y <- paste("PC", PCs[2], sep = "")
   rv <- rowVars(assay(object))
-  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, 
-                                                     length(rv)))]
+  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
   pca <- prcomp(t(assay(object)[select, ]))
   percentVar <- pca$sdev^2/sum(pca$sdev^2)
   if (!all(intgroup %in% names(colData(object)))) {
     stop("the argument 'intgroup' should specify columns of colData(dds)")
   }
   
-  intgroup.df <- as.data.frame(colData(object)[, intgroup, 
-                                               drop = FALSE])
+  intgroup.df <- as.data.frame(colData(object)[, intgroup, drop = FALSE])
   
   #return(pca$x)
   #return(pca$x[, c(PCs[1], PCs[2])])
@@ -226,7 +277,6 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   d <- data.frame(PCx = pca$x[, PCs[1]], PCy = pca$x[, PCs[2]],
                   to_color = factor(intgroup.df[,1]), to_shape = factor(intgroup.df[,2]),
                   name = colnames(object))
-  #return(d)
   
   if (returnData) {
     attr(d, "percentVar") <- percentVar[PCs[1]:PCs[2]]
@@ -239,9 +289,8 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
     ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance")) + coord_fixed()
   
   # To use only one feature:
-  # Comment the code above from "d <-" to  "gglot ..." 
-  # and uncommentthe following code from "group <- " to  "gglot ..." 
-  #
+  # Comment 13 lines of the code above [from "d <-" to  "ylab(..."]
+  # and uncomment the next 14 lines [from "group <- " to  "ylab(..."]
   # group <- if (length(intgroup) > 1) {
   #   factor(apply(intgroup.df, 1, paste, collapse = " : "))
   # }
@@ -249,49 +298,84 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   #   colData(object)[[intgroup]]
   # }
   #
-  # Uncomment the next 2 lines to use only one feature
   # d <- data.frame(PCx = pca$x[, PCs[1]], PCy = pca$x[, PCs[2]], group = group,
   #                 intgroup.df, name = colnames(object))
   #
   # ggplot(data = d, aes_string(x = "PCx", y = "PCy", color = "group")) +
-  #   geom_point(size = 3, alpha = 1) + xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
-  #   ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance")) + coord_fixed()
-  
+  #   geom_point(size = 3, alpha = 1) + coord_fixed() +
+  #   xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
+  #   ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance"))
 }
 
 ##############
+# Make some PCA plots:
 
-# Make PCA plots:
+# This code is to use a simpler method to plot the PCs:
+pr <- prcomp(t(assay(transf.data)))
+
+# This code is to use the function defined above
+
 # PC 1 vs 2
-pca12 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(1,2))
+pca12 <- plotPCAdr(transf.data,
+                   intgroup = c("sample_type", "lib_prep"),
+                   ntop =  nrow(assay(transf.data)),
+                   PCs = c(1,2))
 pca12 <- pca12 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
                              cex=3, nudge_x = -4, nudge_y = 0,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+
 # PC 2 vs 3
-pca23 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(2,3))
+pca23 <- plotPCAdr(transf.data,
+                   intgroup = c("sample_type", "lib_prep"),
+                   ntop =  nrow(assay(transf.data)),
+                   PCs = c(2,3))
 pca23 <- pca23 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
                              cex=3, nudge_x = -4, nudge_y = 0,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+
 # PC 3 vs 4
-pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), ntop =  nrow(assay(transf.data)), PCs = c(3,4))
+pca34 <- plotPCAdr(transf.data,
+                   intgroup = c("sample_type", "lib_prep"),
+                   ntop =  nrow(assay(transf.data)),
+                   PCs = c(3,4))
 pca34 <- pca34 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
                              cex=3, nudge_x = -4, nudge_y = 0,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
 
-# Show the 3 PCA plots made
+#############################
+# Show the 3 PCA plots made #
+#############################
+
+# PC 1 vs 2:
+############
+# No labels
+plot(pr$x[,])
+# Labels, colors and shapes
 pca12
+
+# PC 2 vs 3:
+############
+# No labels
+plot(pr$x[,-1])
+# Labels, colors and shapes
 pca23
+
+# PC 3 vs 4:
+############
+# No labels
+plot(pr$x[,-c(1,2)])
+# Labels, colors and shapes
 pca34
 
-#This code is to use a simpler method to plot the PCs:
-# pr <- prcomp(t(assay(transf.data)))
-# plot(pr$x[,-1])
+# This is to add labels to the basic PCA plot made using the function plot()
+# But this is not necessary because we have now the function plotPCAdr
 # text(pr$x[,2], pr$x[,3], labels = colnames(assay(transf.data)),
 #      pos = 1, offset = 0.2, cex = 0.7)
 
-#sort(abs(pr$rotation[,1]), decreasing = TRUE)[1:50]
-#sort(abs(pr$rotation[,1]), decreasing = TRUE)
-#write.csv(sort(abs(pr$rotation[,1]), decreasing = TRUE), file = "PC1.csv")
+# This is to extract the individual gene contribution to PC1
+# sort(abs(pr$rotation[,1]), decreasing = TRUE)[1:50]
+# sort(abs(pr$rotation[,1]), decreasing = TRUE)
+# write.csv(sort(abs(pr$rotation[,1]), decreasing = TRUE), file = "PC1.csv")
 ```
 
 ### tSNE plot
@@ -300,20 +384,51 @@ pca34
 sampleDists <- dist(t(assay(transf.data)))
 
 # Perplexity is set to 4 because this is our average number of samples by patient (neighbors in a set)
-samples.tsne <- tsne(sampleDists, perplexity = 4, max_iter = 10000)
+samples.tsne <- tsne(sampleDists, perplexity = 4, max_iter = 10000, epoch=1000)
 
 df.tsne <- data.frame(samples.tsne)
 df.tsne$id <- sampledata$id
 df.tsne$library <- sampledata$lib_prep
 df.tsne$patient <- sampledata$patient
 df.tsne$sample_type <- sampledata$sample_type
+df.tsne$sample_type <- factor(df.tsne$sample_type, levels=c("normal", "primary", "metastasis"),
+                              labels=c("Normal", "Primary", "Metastasis"))
 
-p.tsne <- ggplot(data = df.tsne) +
-  geom_point(aes(x = X1, y = X2, color = sample_type, shape = library), size = 3) +
+nice_colors <- c("Normal" = "dodgerblue3", "Primary" = "gold", "Metastasis" = "firebrick3")
+
+# tSNE plot de-identifying the samples:
+p.tsne_clean <- ggplot(data = df.tsne) + geom_point(aes(x = X1, y = X2), size = 4) + theme_bw()
+p.tsne_clean
+
+# tSNE plot with labels, colors and shapes:
+p.tsne <- ggplot(data = df.tsne) + theme_bw() +
+  geom_point(aes(x = X1, y = X2, color = sample_type, shape = library), size = 4) +
   geom_text_repel(aes_string(x = df.tsne$X1, y = df.tsne$X2, label = df.tsne$id), color = "black",
                   cex=3, nudge_x = -4, nudge_y = 0,
-                  min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+                  min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines")) +
+  scale_fill_manual(values = nice_colors)
+
 p.tsne
+
+# This is a bigger version of the plot, recommended for posters
+# Warning: set appropriate for the legend according to your plot
+p.tsne_big <- ggplot(data = df.tsne, aes(x = X1, y = X2)) +
+  geom_point(aes(fill = sample_type, shape = library), size = 12, alpha = 0.9) + theme_bw() +
+  scale_shape_manual(values = c(21, 22, 23, 24)) + scale_fill_manual(values = nice_colors) +
+  geom_text(aes(label= patient), size = 6) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank(),
+        legend.position = c(0.87, 0.70), legend.title = element_text(size=20),
+        legend.text=element_text(size=16), legend.background = element_rect(color = "black")) +
+  labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library")))
+        
+p.tsne_big
+
+ggsave("Plots/tSNE_clean.jpg", p.tsne, width = 16, height = 10, dpi = 300)
+ggsave("Plots/tSNE.jpg", p.tsne, width = 16, height = 10, dpi = 300)
+ggsave("Plots/tSNE_big.jpg", p.tsne, width = 8.5, height = 7, dpi = 300)
+
+# To include text inside the circles:
+
 ```
 
 ### HeatMap
@@ -376,8 +491,6 @@ cutoff_alpha <- 0.05
 cutoff_fold <- 1
 
 # Get the result of a certain comparison (see "help(results)" for info on this)
-#res <- results(ds.deseq, contrast=c("sample_type", "primary", "normal"),
-#res <- results(ds.deseq, contrast=c("sample_type", "metastasis", "primary"),
 res <- results(ds.deseq, contrast=list("sample_typemetastasis", "sample_typeprimary"),
                altHypothesis="greaterAbs",
                alpha = cutoff_alpha,
@@ -392,8 +505,8 @@ This block is to add the names and description of the genes.
 #####################
 # Adding gene names #
 #####################
-
 res$ensembl <- rownames(res)
+
 ensembl = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 # More annotations could also be added from biomaRt:
 # listAttributes(mart = ensembl)
@@ -416,8 +529,6 @@ This is to visualize a summary of the results and make some output tables in .cs
 
 summary(res)
 write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_full.csv")
-#write.csv(as.data.frame(res), file = "results_Prims_vs_Normal_full.csv")
-#write.csv(as.data.frame(res), file = "results_Tumor_vs_Normal_full.csv")
 head(res, n = 10)
 
 table(res$padj < cutoff_alpha)
@@ -434,7 +545,6 @@ res_fold.under <- subset(res_sig, log2FoldChange <= -cutoff_fold)
 
 res_fold.over.sorted <- res_fold.over[order(-res_fold.over$log2FoldChange, na.last=TRUE), ]
 res_fold.under.sorted <- res_fold.under[order(res_fold.under$log2FoldChange, na.last=TRUE), ]
-
 head(res_fold.over.sorted, n = 10)
 head(res_fold.under.sorted, n = 10)
 
@@ -500,7 +610,9 @@ p.volcano <- ggplot() + theme_bw() +
                                 "other" = "tan1"),
                      breaks = c("over", "under"), labels = c("Overexpressed", "Underexpressed")) +
   guides(fill = guide_legend(override.aes = list(size=8))) + theme(legend.position = c(0.90, 0.92)) +
-  geom_text_repel(aes( x = d.volcano$log2FoldChange[cond], y = -log10(d.volcano$padj[cond]), label = d.volcano$symbol[cond] ),
+  geom_text_repel(aes(x = d.volcano$log2FoldChange[cond],
+                      y = -log10(d.volcano$padj[cond]),
+                      label = d.volcano$symbol[cond]),
                   inherit.aes = FALSE, parse = FALSE, max.iter = 5000, color = "black", cex = 4,
                   nudge_x = 0, nudge_y = 0.1, segment.alpha = 0.5, segment.size = 0.5,
                   arrow = arrow(length = unit(0.005, "npc"), type = "closed"),
@@ -563,26 +675,34 @@ plotDR_bygene <- function (genename = NULL, symbol = NULL)
   df.box <- data.frame(ds.deseq@colData[, c("id", "lib_prep", "sample_type", "patient")], gene_counts)
   
   # Re-ordering sample_type for the plot
-  df.box$sample_type <- factor(df.box$sample_type, c("normal", "primary", "metastasis"))
-  
+  df.box$sample_type <- factor(df.box$sample_type, levels = c("normal", "primary", "metastasis"), labels=c("N", "P", "M"))
   # This combines lib_prep and sample_type in a new variable
   df.box$lib_sample <- interaction(df.box$lib_prep, df.box$sample_type)
   
   # Plot
   p.bs <- ggplot(df.box, aes(x = df.box$sample_type, y = log2(df.box$gene_counts))) +
-    theme_bw() + geom_boxplot(width = 0.4, fill = "gray90") +
+    theme_bw() + geom_boxplot(width = 0.8, fill = "gray90") +
     geom_point(aes(fill = df.box$sample_type),
-               size = 3, alpha = 0.75, pch = 21, color = "black",
-               position = position_jitter(width = 0.1)) +
+               size = 3, alpha = 0.9, pch = 21, color = "black",
+               position = position_jitter(width = 0.35)) +
+    labs(title = paste0("Gene: ", symbol, " (", genename, ")")) +
     labs(x = expression("Sample Type"),
          y = expression("log"[2]*"(Normalized Gene Counts)"),
          title = paste0("Gene: ", symbol, " (", genename, ")")) +
     scale_fill_discrete(name = "Sample Type")
-  p.bs
+    
+    # Comment 5 lines above and use the following 5 lines instead to make bigger plots, good for posters:
+    # labs(title = paste0(symbol, " (", genename, ")")) +
+    # theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+    #       axis.text.x = element_text(size=14), axis.text.y = element_text(size=14)) +
+    # guides(fill=FALSE) +
+    # scale_fill_manual(values = c("N" = "dodgerblue3", "P" = "gold", "M" = "firebrick3"))
+
+  return(p.bs)
 }
 
 # The genes of interest will be provided in a .tsv table:
-#interesting_genes <- data.frame(read.csv("genes_overexp.tsv", sep = "\t", header = TRUE))
+interesting_genes <- data.frame(read.csv("genes_overexp.tsv", sep = "\t", header = TRUE))
 interesting_genes <- data.frame(read.csv("genes_underexp.tsv", sep = "\t", header = TRUE))
 
 # Then, this loop will make and save the plots for all the genes in the table
