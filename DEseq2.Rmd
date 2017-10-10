@@ -258,7 +258,8 @@ head(assay(transf.data))
 # But including some improvements made by David Requena
 # Now this allows to choose which PCs plot and to use two features for color/shape
 
-plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), returnData = FALSE) 
+plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), size = 7, alpha = 1,
+                       colors = NULL, returnData = FALSE) 
 {
   PC_x <- paste("PC", PCs[1], sep = "")
   PC_y <- paste("PC", PCs[2], sep = "")
@@ -275,9 +276,9 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   #return(pca$x)
   #return(pca$x[, c(PCs[1], PCs[2])])
   
-  # To assign different shapes
+  # To use different shapes and fill using different colors
   d <- data.frame(PCx = pca$x[, PCs[1]], PCy = pca$x[, PCs[2]],
-                  to_color = factor(intgroup.df[,1]), to_shape = factor(intgroup.df[,2]),
+                  to_fill = factor(intgroup.df[,1]), to_shape = factor(intgroup.df[,2]),
                   name = colnames(object))
   
   if (returnData) {
@@ -285,10 +286,29 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
     return(d)
   }
 
-  ggplot(data = d, aes_string(x = "PCx", y = "PCy", color = "to_color", shape = "to_shape")) +
-    labs(color = intgroup[1], shape = intgroup[2]) + geom_point(size = 3, alpha = 1) +
+  ggplot(data = d, aes_string(x = "PCx", y = "PCy", fill = "to_fill", shape = "to_shape")) +
+    labs(fill = intgroup[1], shape = intgroup[2]) + geom_point(size = size, alpha = alpha) +
+    scale_fill_manual(values = nice_colors, guide = guide_legend(override.aes = aes(shape = 21))) +
+    scale_shape_manual(values = c(24, 21, 22, 25)) + coord_fixed() + theme_bw() +
     xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
-    ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance")) + coord_fixed()
+    ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance"))
+
+  
+  # To use different shapes and colors (dots)
+  # d <- data.frame(PCx = pca$x[, PCs[1]], PCy = pca$x[, PCs[2]],
+  #                 to_color = factor(intgroup.df[,1]), to_shape = factor(intgroup.df[,2]),
+  #                 name = colnames(object))
+  # 
+  # if (returnData) {
+  #   attr(d, "percentVar") <- percentVar[PCs[1]:PCs[2]]
+  #   return(d)
+  # }
+  # 
+  # ggplot(data = d, aes_string(x = "PCx", y = "PCy", color = "to_color", shape = "to_shape")) +
+  #   labs(color = intgroup[1], shape = intgroup[2]) + geom_point(size = 7, alpha = 1) +
+  #   xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
+  #   ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance")) + coord_fixed()
+  
   
   # To use only one feature:
   # Comment 13 lines of the code above [from "d <-" to  "ylab(..."]
@@ -312,44 +332,40 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
 #######################
 # Make some PCA plots #
 #######################
-
-# This code is to use a simpler method to plot the PCs:
+# Using a simple method to plot the PCs:
 pr <- prcomp(t(assay(transf.data)))
 
+# Colors for presentations
+# nice_colors <- c("dodgerblue3", "gold", "firebrick3")
+#nice_colors <- c("steelblue1", "khaki1", "firebrick1")
 
-# The folowwing code is to use the function defined above
+# Colors for article
+nice_colors <- c("white", "gray80", "gray35")
 
+
+# Plot PCs using the function defined above:
 # PC 1 vs 2
-pca12 <- plotPCAdr(transf.data,
-                   intgroup = c("sample_type", "lib_prep"),
-                   ntop =  nrow(assay(transf.data)),
-                   PCs = c(1,2))
-pca12 <- pca12 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
-                             cex=3, nudge_x = -4, nudge_y = 0,
-                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
-
+pca12 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(1,2),
+                   colors = nice_colors, ntop =  nrow(assay(transf.data))) +
+  labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
+  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex=4,
+                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 # PC 2 vs 3
-pca23 <- plotPCAdr(transf.data,
-                   intgroup = c("sample_type", "lib_prep"),
-                   ntop =  nrow(assay(transf.data)),
-                   PCs = c(2,3))
-pca23 <- pca23 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
-                             cex=3, nudge_x = -4, nudge_y = 0,
-                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
-
+pca23 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(2,3),
+                   colors = nice_colors, ntop =  nrow(assay(transf.data))) +
+  labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
+  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex=4,
+                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 # PC 3 vs 4
-pca34 <- plotPCAdr(transf.data,
-                   intgroup = c("sample_type", "lib_prep"),
-                   ntop =  nrow(assay(transf.data)),
-                   PCs = c(3,4))
-pca34 <- pca34 + geom_text_repel(aes_string(label = transf.data$id), color = "black",
-                             cex=3, nudge_x = -4, nudge_y = 0,
-                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines"))
+pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(3, 4),
+                   colors = nice_colors, ntop =  nrow(assay(transf.data))) +
+  labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
+  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex=4,
+                             min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 
 #############################
 # Show the 3 PCA plots made #
 #############################
-
 # It's important to examine first the figures with the samples completely de-identified,
 # to see if you can recognize any cluster from the plot.
 # In the following plots, the de-identified version is printed before the identified one:
@@ -402,38 +418,38 @@ df.tsne$sample_type <- sampledata$sample_type
 df.tsne$sample_type <- factor(df.tsne$sample_type, levels=c("normal", "primary", "metastasis"),
                               labels=c("Normal", "Primary", "Metastasis"))
 
-nice_colors <- c("Normal" = "dodgerblue3", "Primary" = "gold", "Metastasis" = "firebrick3")
-
 # tSNE plot de-identifying the samples:
 p.tsne_clean <- ggplot(data = df.tsne) + geom_point(aes(x = X1, y = X2), size = 4) + theme_bw()
-p.tsne_clean
 
 # tSNE plot with labels, colors and shapes:
 p.tsne <- ggplot(data = df.tsne) + theme_bw() +
-  geom_point(aes(x = X1, y = X2, color = sample_type, shape = library), size = 4) +
+  geom_point(aes(x = X1, y = X2, fill = sample_type, shape = library), size = 7) +
+  scale_fill_manual(values = nice_colors, guide = guide_legend(override.aes = aes(shape = 21))) +
+  scale_shape_manual(values = c(24, 21, 22, 25)) +
   geom_text_repel(aes_string(x = df.tsne$X1, y = df.tsne$X2, label = df.tsne$id), color = "black",
-                  cex=3, nudge_x = -4, nudge_y = 0,
-                  min.segment.length = unit(0.1, "lines"), box.padding = unit(0.4, "lines")) +
-  scale_fill_manual(values = nice_colors)
-
-p.tsne
+                  cex=3.5, min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 
 # This is a bigger version of the plot, recommended for posters
 # Warning: set appropriate coordinates for the legend, according to your desired plot size
-p.tsne_big <- ggplot(data = df.tsne, aes(x = X1, y = X2)) +
-  geom_point(aes(fill = sample_type, shape = library), size = 12, alpha = 0.9) + theme_bw() +
-  scale_shape_manual(values = c(21, 22, 23, 24)) + scale_fill_manual(values = nice_colors) +
+p.tsne_big <- ggplot(data = df.tsne, aes(x = X1, y = X2, shape = library, fill = sample_type)) +
+  geom_point(color = "black", size = 12, alpha = 0.9) +  theme_bw() +
+  scale_shape_manual(values = c(24, 21, 22, 25),
+                     guide = guide_legend(override.aes = list(size = 7), keyheight = 1.7)) +
+  scale_fill_manual(values = nice_colors,
+                    guide = guide_legend(override.aes = aes(shape = 21, size = 9))) +
   geom_text(aes(label= patient), size = 6) +
-  theme(axis.text.x = element_blank(), axis.text.y = element_blank(),
-        legend.position = c(0.87, 0.70), legend.title = element_text(size=20),
-        legend.text=element_text(size=16), legend.background = element_rect(color = "black")) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position = c(0.88, 0.72),
+        legend.title = element_text(size=20), legend.text=element_text(size=16),
+        legend.background = element_rect(color = "black"), legend.box.just = "right") +
   labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library")))
-        
+
+p.tsne_clean
+p.tsne
 p.tsne_big
 
-ggsave("Plots/tSNE_clean.jpg", p.tsne, width = 16, height = 10, dpi = 300)
+ggsave("Plots/tSNE_clean.jpg", p.tsne_clean, width = 16, height = 10, dpi = 300)
 ggsave("Plots/tSNE.jpg", p.tsne, width = 16, height = 10, dpi = 300)
-ggsave("Plots/tSNE_big.jpg", p.tsne, width = 8.5, height = 7, dpi = 300)
+ggsave("Plots/tSNE_big.jpg", p.tsne_big, width = 8.5, height = 7, dpi = 300)
 ```
 
 ### HeatMap
