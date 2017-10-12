@@ -250,6 +250,8 @@ head(assay(transf.data))
 ```
 
 ### PCA plot
+
+#### Function to make nice PCA plots
 ```{r, eval = TRUE}
 ######################
 # plotPCAdr function #
@@ -328,7 +330,10 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   #   xlab(paste0(PC_x, ": ", round(percentVar[PCs[1]] * 100), "% variance")) +
   #   ylab(paste0(PC_y, ": ", round(percentVar[PCs[2]] * 100), "% variance"))
 }
+```
 
+#### Making some PCA plots
+```{r, eval = TRUE}
 #######################
 # Make some PCA plots #
 #######################
@@ -337,11 +342,10 @@ pr <- prcomp(t(assay(transf.data)))
 
 # Colors for presentations
 # nice_colors <- c("dodgerblue3", "gold", "firebrick3")
-#nice_colors <- c("steelblue1", "khaki1", "firebrick1")
+nice_colors <- c("steelblue1", "khaki1", "firebrick1")
 
 # Colors for article
-nice_colors <- c("white", "gray80", "gray35")
-
+# nice_colors <- c("white", "gray80", "gray35")
 
 # Plot PCs using the function defined above:
 # PC 1 vs 2
@@ -373,23 +377,31 @@ pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c
 # PC 1 vs 2:
 ############
 # No labels
-plot(pr$x[,])
+plot(pr$x[,], pch = 16)
 # Labels, colors and shapes
 pca12
 
 # PC 2 vs 3:
 ############
 # No labels
-plot(pr$x[,-1])
+plot(pr$x[,-1], pch = 16)
 # Labels, colors and shapes
 pca23
 
 # PC 3 vs 4:
 ############
 # No labels
-plot(pr$x[,-c(1,2)])
+
 # Labels, colors and shapes
 pca34
+
+# To save the figures:
+ggsave("Plots/PCA12_clean.jpg", plot(pr$x[,], pch = 16), width = 16, height = 10, dpi = 300)
+ggsave("Plots/PCA12_features.jpg", pca12, width = 16, height = 10, dpi = 300)
+ggsave("Plots/PCA23_clean.jpg", plot(pr$x[,-1], pch = 16), width = 16, height = 10, dpi = 300)
+ggsave("Plots/PCA23_features.jpg", pca23, width = 16, height = 10, dpi = 300)
+ggsave("Plots/PCA34_clean.jpg", plot(pr$x[,-c(1,2)], pch = 16), width = 16, height = 10, dpi = 300)
+ggsave("Plots/PCA34_features.jpg", pca34, width = 16, height = 10, dpi = 300)
 
 # This is to add labels to the basic PCA plot made using the function plot()
 # But this is not necessary because we have now the function plotPCAdr
