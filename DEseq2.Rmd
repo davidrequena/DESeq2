@@ -16,7 +16,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Install and/or call the required libraries
 
 This first block is just to install the dependencies. If already installed, just left this commented.
-
 ```{r Install libraries, eval=FALSE, echo=FALSE}
 # # Import necessary libraries
 # install.packages('knitr')
@@ -36,8 +35,8 @@ This first block is just to install the dependencies. If already installed, just
 # biocLite("biomaRt", dependencies=TRUE)
 # biocLite("pheatmap", dependencies=TRUE)
 ```
-This block is to call all the required libraries:
 
+This block is to call all the required libraries:
 ```{r, echo=FALSE}
 # library("XML")
 library("knitr")
@@ -46,6 +45,7 @@ library("biomaRt")
 library("matrixStats")
 library("BatchJobs")
 library("BiocParallel")
+library("scales")
 library("RColorBrewer")
 library("gplots")
 library("ggplot2")
@@ -59,7 +59,6 @@ library("grDevices")
 ### Input sample metadata
 
 In this block, you just need to change the working directory:
-
 ```{r "setup"}
 # require("knitr")
 knitr::opts_knit$set(root.dir = "../RNAseq_data") # <<<------------- *** WORKING DIRECTORY ***
@@ -73,7 +72,6 @@ counts_data <- "counts_data.tsv"
 
 This block is to read the samples' data.
 There is also an option to work with subsets.
-
 ```{r, echo=FALSE}
 #########################
 # Input sample metadata #
@@ -137,6 +135,7 @@ colnames(countstable.num) <- genecols
 # If not, this line will do nothing
 countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
 ```
+
 This block is to explore the distribution of counts by sample
 ```{r, echo=FALSE}
 ##################################################
@@ -260,7 +259,7 @@ head(assay(transf.data))
 # But including some improvements made by David Requena
 # Now this allows to choose which PCs plot and to use two features for color/shape
 
-plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), size = 7, alpha = 1,
+plotPCA_DR <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), size = 7, alpha = 1,
                        colors = NULL, returnData = FALSE) 
 {
   PC_x <- paste("PC", PCs[1], sep = "")
@@ -268,7 +267,7 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
   rv <- rowVars(assay(object))
   select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
   pca <- prcomp(t(assay(object)[select, ]))
-  percentVar <- pca$sdev^2/sum(pca$sdev^2)
+  percentVar <- pca$sdev^2 / sum(pca$sdev^2)
   if (!all(intgroup %in% names(colData(object)))) {
     stop("the argument 'intgroup' should specify columns of colData(dds)")
   }
@@ -332,7 +331,7 @@ plotPCAdr <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
 }
 ```
 
-#### Making some PCA plots
+Making some PCA plots
 ```{r, eval = TRUE}
 #######################
 # Make some PCA plots #
@@ -349,22 +348,22 @@ nice_colors <- c("steelblue1", "khaki1", "firebrick1")
 
 # Plot PCs using the function defined above:
 # PC 1 vs 2
-pca12 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(1,2),
+pca12 <- plotPCA_DR(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(1,2),
                    colors = nice_colors, ntop =  nrow(assay(transf.data))) +
   labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
-  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex=4,
+  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex = 4,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 # PC 2 vs 3
-pca23 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(2,3),
+pca23 <- plotPCA_DR(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(2,3),
                    colors = nice_colors, ntop =  nrow(assay(transf.data))) +
   labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
-  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex=4,
+  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex = 4,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 # PC 3 vs 4
-pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(3, 4),
+pca34 <- plotPCA_DR(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c(3,4),
                    colors = nice_colors, ntop =  nrow(assay(transf.data))) +
   labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
-  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex=4,
+  geom_text_repel(aes_string(label = transf.data$id), color = "black", cex = 4,
                              min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 
 #############################
@@ -377,30 +376,33 @@ pca34 <- plotPCAdr(transf.data, intgroup = c("sample_type", "lib_prep"), PCs = c
 # PC 1 vs 2:
 ############
 # No labels
-plot(pr$x[,], pch = 16)
+plot(pr$x[,], pch = 21, bg = alpha("gray40", 0.5), cex = 3.5)
 # Labels, colors and shapes
 pca12
 
 # PC 2 vs 3:
 ############
 # No labels
-plot(pr$x[,-1], pch = 16)
+plot(pr$x[, -1], pch = 21, bg = alpha("gray40", 0.5), cex = 3.5)
 # Labels, colors and shapes
 pca23
 
 # PC 3 vs 4:
 ############
 # No labels
-
+plot(pr$x[, -c(1,2)], pch = 21, bg = alpha("gray40", 0.5), cex = 3.5)
 # Labels, colors and shapes
 pca34
 
 # To save the figures:
-ggsave("Plots/PCA12_clean.jpg", plot(pr$x[,], pch = 16), width = 16, height = 10, dpi = 300)
+ggsave("Plots/PCA12_clean.jpg", width = 16, height = 10, dpi = 300,
+       plot(pr$x[,], pch = 21, bg = alpha("gray40", 0.5), cex = 3.5))
+ggsave("Plots/PCA23_clean.jpg", width = 16, height = 10, dpi = 300,
+       plot(pr$x[, -1], pch = 21, bg = alpha("gray40", 0.5), cex = 3.5))
+ggsave("Plots/PCA34_clean.jpg", width = 16, height = 10, dpi = 300,
+       plot(pr$x[, -c(1,2)], pch = 21, bg = alpha("gray40", 0.5), cex = 3.5))
 ggsave("Plots/PCA12_features.jpg", pca12, width = 16, height = 10, dpi = 300)
-ggsave("Plots/PCA23_clean.jpg", plot(pr$x[,-1], pch = 16), width = 16, height = 10, dpi = 300)
 ggsave("Plots/PCA23_features.jpg", pca23, width = 16, height = 10, dpi = 300)
-ggsave("Plots/PCA34_clean.jpg", plot(pr$x[,-c(1,2)], pch = 16), width = 16, height = 10, dpi = 300)
 ggsave("Plots/PCA34_features.jpg", pca34, width = 16, height = 10, dpi = 300)
 
 # This is to add labels to the basic PCA plot made using the function plot()
@@ -431,19 +433,27 @@ df.tsne$sample_type <- factor(df.tsne$sample_type, levels=c("normal", "primary",
                               labels=c("Normal", "Primary", "Metastasis"))
 
 # tSNE plot de-identifying the samples:
-p.tsne_clean <- ggplot(data = df.tsne) + geom_point(aes(x = X1, y = X2), size = 4) + theme_bw()
+p.tsne_clean <- ggplot(data = df.tsne) + theme_bw() +
+  geom_point(aes(x = X1, y = X2), pch = 21, size = 7, fill = "gray40", alpha = 0.75) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank())
 
 # tSNE plot with labels, colors and shapes:
-p.tsne <- ggplot(data = df.tsne) + theme_bw() +
+p.tsne_features <- ggplot(data = df.tsne) + theme_bw() +
   geom_point(aes(x = X1, y = X2, fill = sample_type, shape = library), size = 7) +
   scale_fill_manual(values = nice_colors, guide = guide_legend(override.aes = aes(shape = 21))) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank()) +
+  labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
   scale_shape_manual(values = c(24, 21, 22, 25)) +
   geom_text_repel(aes_string(x = df.tsne$X1, y = df.tsne$X2, label = df.tsne$id), color = "black",
                   cex=3.5, min.segment.length = unit(0.1, "lines"), box.padding = unit(0.6, "lines"))
 
-# This is a bigger version of the plot, recommended for posters
+# The following is a bigger version of the plot, recommended for posters
 # Warning: set appropriate coordinates for the legend, according to your desired plot size
-p.tsne_big <- ggplot(data = df.tsne, aes(x = X1, y = X2, shape = library, fill = sample_type)) +
+p.tsne_big_clean <- ggplot(data = df.tsne) + theme_bw() +
+  geom_point(aes(x = X1, y = X2), pch = 21, size = 12, fill = "gray40", alpha = 0.75) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank())
+
+p.tsne_big_features <- ggplot(data = df.tsne, aes(x = X1, y = X2, shape = library, fill = sample_type)) +
   geom_point(color = "black", size = 12, alpha = 0.9) +  theme_bw() +
   scale_shape_manual(values = c(24, 21, 22, 25),
                      guide = guide_legend(override.aes = list(size = 7), keyheight = 1.7)) +
@@ -456,12 +466,14 @@ p.tsne_big <- ggplot(data = df.tsne, aes(x = X1, y = X2, shape = library, fill =
   labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library")))
 
 p.tsne_clean
-p.tsne
-p.tsne_big
+p.tsne_features
+p.tsne_big_clean
+p.tsne_big_features
 
 ggsave("Plots/tSNE_clean.jpg", p.tsne_clean, width = 16, height = 10, dpi = 300)
-ggsave("Plots/tSNE.jpg", p.tsne, width = 16, height = 10, dpi = 300)
-ggsave("Plots/tSNE_big.jpg", p.tsne_big, width = 8.5, height = 7, dpi = 300)
+ggsave("Plots/tSNE_features.jpg", p.tsne, width = 16, height = 10, dpi = 300)
+ggsave("Plots/tSNE_big_clean.jpg", p.tsne_big_clean, width = 8.5, height = 7, dpi = 300)
+ggsave("Plots/tSNE_big_features.jpg", p.tsne_big, width = 8.5, height = 7, dpi = 300)
 ```
 
 ### HeatMap
@@ -472,17 +484,17 @@ rownames(sampleDistMatrix) <- paste(transf.data$id, transf.data$sample_type, sep
 colnames(sampleDistMatrix) <- paste(transf.data$id, transf.data$sample_type, sep = "_")
 
 # Make heatmap based on the Distance matrix (uses all genes)
-heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
-          key = TRUE, density.info = "none")
+heatmap.basic <- heatmap.2(sampleDistMatrix, margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
+                     trace="none", revC = TRUE, key = FALSE)
+
+ggsave("Plots/Heatmap_basic.jpg", width = 10, height = 10, dpi = 300,
+       heatmap.2(sampleDistMatrix, margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
+                     trace="none", revC = TRUE, key = FALSE))
 
 # To personalize the colors, use:
 # Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
 # heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
 #          key = TRUE, density.info = "none", col=colors)
-
-# Using a different function, to cluster also by genes
-pheatmap(transf.data, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 1000,
-         annotation = data.frame(sampledata[,c(1,6)]))
 ```
 
 ## 3. Data Analysis
@@ -575,6 +587,9 @@ head(res_sig, n = 10)
 res_fold.over <- subset(res_sig, log2FoldChange >= cutoff_fold)
 res_fold.under <- subset(res_sig, log2FoldChange <= -cutoff_fold)
 
+summary(res_fold.over)
+summary(res_fold.under)
+
 res_fold.over.sorted <- res_fold.over[order(-res_fold.over$log2FoldChange, na.last=TRUE), ]
 res_fold.under.sorted <- res_fold.under[order(res_fold.under$log2FoldChange, na.last=TRUE), ]
 head(res_fold.over.sorted, n = 10)
@@ -583,10 +598,11 @@ head(res_fold.under.sorted, n = 10)
 write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
 write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
 ```
-### Plots
-This code is to generate some plots from the results
 
-#### Volcano Plot
+## Plots
+This section is to generate some plots from the results:
+
+### Volcano Plot
 ```{r, echo=FALSE}
 
 # New data frame for the volcano plot
@@ -594,25 +610,26 @@ d.volcano <- data.frame(res)
 # To remove empty adjusted p-values
 d.volcano <- d.volcano[!is.na(d.volcano$padj), ]
 
-# To reduce the range of the volcano plot, for posters
+# Optional: To reduce the range of the volcano plot, for posters
 #d.volcano <- d.volcano[(abs(d.volcano$log2FoldChange) < 8) & (-log10(d.volcano$padj) < 7.5), ]
 
-# To fill the empty labels
+# To fill the "empty" labels
 d.volcano$symbol[is.na(d.volcano$symbol) | (d.volcano$symbol == "")] <- "NS"
 
-# Additional cut-offs. The script will only plot the labels of the
-# data points passing the "nice" cutoff, for a better visualization
+# Additional cut-offs. The script will only add labels to those data points
+# passing a "nice" cutoff, for a better visualization:
 ctf_nice <- cutoff_alpha / 500
-fld_nice <- cutoff_fold * 3
+fld_nice <- cutoff_fold * 4
 
-# Colors
+# Different colors for the datapoints, according to their relevance:
 d.volcano$colors <- rep("other", nrow(d.volcano))
 d.volcano$colors[(abs(d.volcano$log2FoldChange) <= cutoff_fold) & (d.volcano$padj >= cutoff_alpha)] <- "worst"
 d.volcano$colors[(abs(d.volcano$log2FoldChange) <= cutoff_fold) & (d.volcano$padj <= cutoff_alpha)] <- "middle"
 d.volcano$colors[(d.volcano$log2FoldChange >= cutoff_fold) & (d.volcano$padj < cutoff_alpha)] <- "over"
 d.volcano$colors[(d.volcano$log2FoldChange <= -cutoff_fold) & (d.volcano$padj < cutoff_alpha)] <- "under"
 
-# Condition to select just a group of genes
+# To add labels just to a group of genes (passing the "nice" cut off),
+# it is necessary to set some conditions to select just that group:
 cond1 <- !( (abs(d.volcano$log2FoldChange) <= cutoff_fold) | (d.volcano$padj > cutoff_alpha) )
 cond2 <- !( (abs(d.volcano$log2FoldChange) <= fld_nice) & (d.volcano$padj > ctf_nice) )
 cond <- cond1 & cond2
@@ -621,9 +638,27 @@ cond <- cond1 & cond2
 # Volcano Plot using ggplot2 and text repel #
 #############################################
 p.volcano <- ggplot() + theme_bw() +
-  scale_y_continuous(expand=c(0,0), limits = c(0, max(-log10(d.volcano$padj)) + 1) ) +
-    geom_vline(xintercept = c(-cutoff_fold, cutoff_fold), colour = "red", alpha = 0.8, linetype = 2) +
-  geom_hline(yintercept = c(-log10(cutoff_alpha)), colour = "red", alpha = 0.8, linetype = 2) +
+  # Plot limits:
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0, max(-log10(d.volcano$padj)) + 1),
+                     minor_breaks = seq(0, 5 * (max(-log10(d.volcano$padj)) %/% 5 + 5), by = 1)) +
+  scale_x_continuous(expand = c(0,0),
+                     limits = c(min(d.volcano$log2FoldChange) -1, max(d.volcano$log2FoldChange) + 1),
+                     breaks = seq(5 * (min(d.volcano$log2FoldChange)) %/% 5,
+                                  5 * (max(d.volcano$log2FoldChange)) %/% 5, by = 5),
+                     minor_breaks = seq(5 * (min(d.volcano$log2FoldChange)) %/% 5 - 5,
+                                        5 * (max(d.volcano$log2FoldChange)) %/% 5 + 5, by = 1)) +
+  # Vertical lines and labels:
+  geom_vline(xintercept = c(-cutoff_fold, cutoff_fold), color = "red", alpha = 0.8, linetype = 2) +
+  geom_text(aes(x = -cutoff_fold - 0.75, y = max(-log10(d.volcano$padj) + 0.75),
+                label = paste("x =", -cutoff_fold)), color = "red") +
+  geom_text(aes(x = cutoff_fold + 0.75, y = max(-log10(d.volcano$padj) + 0.75),
+                label = paste("x =", cutoff_fold)), color = "red") +
+  # Horizontal line and label:
+  geom_hline(yintercept = -log10(cutoff_alpha), colour = "red", alpha = 0.8, linetype = 2) +
+  geom_text(aes(x = min(d.volcano$log2FoldChange) + 0.25, y = -log10(cutoff_alpha) - 0.25,
+                label = paste("p =", cutoff_alpha)), color = "red") +
+  # Rectangles with colors:
   geom_rect(aes(xmin = -fld_nice, xmax = fld_nice, ymin = 0, ymax = -log10(cutoff_alpha)),
             fill="mistyrose", alpha = 0.4, inherit.aes = FALSE) +
   geom_rect(aes(xmin = -cutoff_fold, xmax = cutoff_fold, ymin = 0, ymax = -log10(ctf_nice)),
@@ -632,6 +667,7 @@ p.volcano <- ggplot() + theme_bw() +
             fill="lightgoldenrodyellow", alpha = 0.5, inherit.aes = FALSE) +
   geom_rect(aes(xmin = cutoff_fold, xmax = fld_nice, ymin = -log10(cutoff_alpha), ymax = -log10(ctf_nice)),
             fill="lightgoldenrodyellow", alpha = 0.5, inherit.aes = FALSE) +
+  # Datapoints, in different colors:
   geom_point(data = d.volcano, aes(x = d.volcano$log2FoldChange, y = -log10(d.volcano$padj), fill = d.volcano$colors),
              size = 1.5, pch=21, color = "gray10", alpha = 0.7, show.legend = TRUE) +
   scale_fill_manual(name = "Relative expression",
@@ -642,18 +678,22 @@ p.volcano <- ggplot() + theme_bw() +
                                 "other" = "tan1"),
                      breaks = c("over", "under"), labels = c("Overexpressed", "Underexpressed")) +
   guides(fill = guide_legend(override.aes = list(size=8))) + theme(legend.position = c(0.90, 0.92)) +
+  # Labels for the datapoints selected:
   geom_text_repel(aes(x = d.volcano$log2FoldChange[cond],
                       y = -log10(d.volcano$padj[cond]),
                       label = d.volcano$symbol[cond]),
-                  inherit.aes = FALSE, parse = FALSE, max.iter = 5000, color = "black", cex = 4,
-                  nudge_x = 0, nudge_y = 0.1, segment.alpha = 0.5, segment.size = 0.5,
+                  inherit.aes = FALSE, parse = FALSE, max.iter = 5000, color = "black", cex = 3,
+                  nudge_x = 0.2, nudge_y = 0.2, segment.alpha = 0.5, segment.size = 0.5,
                   arrow = arrow(length = unit(0.005, "npc"), type = "closed"),
                   box.padding = unit(0.1, "lines"), min.segment.length = unit(0.01, "lines")) +
+  # Axis labels:
   labs(x = expression("log"[2]*"(Fold Change)"),
        y = expression("-log"[10]*"(p adjusted)"),
        title = "Metastasis / Primary tumors")
 
 p.volcano
+
+ggsave("Plots/VolcanoPlot.jpg", p.volcano, width = 16, height = 9, dpi = 300)
 
 ############################
 # Traditional Volcano Plot #
@@ -675,30 +715,55 @@ p.volcano
 # title(main = "Metastasis vs Primary")
 ```
 
-#### HeatMap
+### HeatMap
 ```{r, echo=FALSE}
 ###########
 # HeatMap #
 ###########
-# To cluster using a subset of the genes
-# In this case, using only the differentially expressed genes passing the cut-off (adjusted p-value)
-# And, coloring by patient and sample type
-transf.data.sig <- transf.data[rownames(transf.data) %in% rownames(res_sig),]
-pheatmap(transf.data.sig, cluster_rows = TRUE, show_rownames = FALSE, #kmeans_k = 100,
-         annotation = data.frame(sampledata[,c(1,6)]))
+# Using a different function, to cluster also by genes
+
+# Variance stabilized data:
+varst.data <- getVarianceStabilizedData(ds.deseq)
+# Subset excluding the normal samples:
+varst.data.PM <- varst.data[, sampledata$id[sampledata$sample_type != "normal"]]
+# Subset considering only the genes with significative p-value (adjusted):
+varst.data.sig <- varst.data[rownames(varst.data) %in% rownames(res_sig), ]
+# Subset considering only the genes with significative p-value (adjusted)
+# and excluding the normal samples:
+varst.data.sig_PM <- varst.data[rownames(varst.data) %in% rownames(res_sig),
+                                sampledata$id[sampledata$sample_type != "normal"]]
+
+# Plot the heatmaps using all the genes but as most 500 clusters of genes
+# and adding the labels of library prep, patient and sample type:
+pheatmap(varst.data, cluster_rows = TRUE, show_rownames = FALSE, kmeans_k = 500,
+         annotation = data.frame(sampledata[, c(1,4,6)]),
+         filename = "Plots/HeatMap.jpg", width = 16, height = 9) 
+pheatmap(varst.data.PM, cluster_rows = TRUE, show_rownames = FALSE, kmeans_k = 500,
+         annotation = data.frame(sampledata[, c(1,4,6)]),
+         filename = "Plots/HeatMap_Prim-Mets.jpg", width = 16, height = 9)
+
+# Plot the heatmaps using all the genes with significative p-value (adjusted)
+# and adding the labels of library prep, patient and sample type:
+pheatmap(varst.data.sig, cluster_rows = TRUE, show_rownames = FALSE,
+         annotation = data.frame(sampledata[, c(1,4,6)]),
+         filename = "Plots/HeatMap_sig.jpg", width = 16, height = 9)
+pheatmap(varst.data.sig_PM, cluster_rows = TRUE, show_rownames = FALSE,
+         annotation = data.frame(sampledata[, c(1,4,6)]),
+         filename = "Plots/HeatMap_sig_Prim-Mets.jpg", width = 16, height = 9)
 ```
 
-#### BoxPlot and ScatterPlot
+### BoxPlot and ScatterPlot
 After the differential expression analysis, the genes of interest can be further analyzed individually using
 boxplot and scatterplots.
 
+#### Function to make nice BoxPlots + ScatterPlots
 ```{r, echo=FALSE}
-###########
-# BoxPlot #
-###########
-
-# This function will plot a Boxplot and also the datapoints
-plotDR_bygene <- function (genename = NULL, symbol = NULL)
+################################
+# BoxPlot including datapoints #
+################################
+# This function will make a Boxplot, but showing also the datapoints on top but
+# with an small deviation (jitter) for a better visualization
+plotBoxScatter_DR <- function (genename = NULL, symbol = NULL)
 {
   # Extracting the vector of counts for that gene
   gene_counts <- counts(ds.deseq, normalized = TRUE)[genename,]
@@ -722,29 +787,32 @@ plotDR_bygene <- function (genename = NULL, symbol = NULL)
          y = expression("log"[2]*"(Normalized Gene Counts)"),
          title = paste0("Gene: ", symbol, " (", genename, ")")) +
     scale_fill_discrete(name = "Sample Type")
-    
-    # Comment 5 lines above and use the following 5 lines instead to make bigger plots, good for posters:
-    # labs(title = paste0(symbol, " (", genename, ")")) +
-    # theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-    #       axis.text.x = element_text(size=14), axis.text.y = element_text(size=14)) +
-    # guides(fill=FALSE) +
-    # scale_fill_manual(values = c("N" = "dodgerblue3", "P" = "gold", "M" = "firebrick3"))
+
+  # Comment 5 lines above and use the following 5 lines instead to make bigger plots, good for posters:
+  # labs(title = paste0(symbol, " (", genename, ")")) +
+  # theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
+  #       axis.text.x = element_text(size = 14), axis.text.y = element_text(size = 14)) +
+  # guides(fill=FALSE) +
+  # scale_fill_manual(values = c("N" = "dodgerblue3", "P" = "gold", "M" = "firebrick3"))
+  
+  # Note to me (DR): use aes(shape = df.box$lib_prep)
 
   return(p.bs)
 }
+```
 
-# The genes of interest will be provided in a .tsv table:
+Making plots for some genes of interest:
+```{r, echo=FALSE}
+# The genes of interest should be provided in a .tsv table:
 interesting_genes <- data.frame(read.csv("genes_overexp.tsv", sep = "\t", header = TRUE))
 interesting_genes <- data.frame(read.csv("genes_underexp.tsv", sep = "\t", header = TRUE))
 
 # Then, this loop will make and save the plots for all the genes in the table
 for (i in 1:nrow(interesting_genes)) {
   ggsave(paste0("By_Gene/Underexp/", interesting_genes[i, 2], ".jpg"),
-         plotDR_bygene(toString(interesting_genes[i, 1]), toString(interesting_genes[i, 2])),
+         plotBoxScatter_DR(toString(interesting_genes[i, 1]), toString(interesting_genes[i, 2])),
          width = 16, height = 10, dpi = 300)
 }
-
-#aes(shape = df.box$lib_prep)
 ```
 
 For further guidance, check the DESeq2 Vignette:

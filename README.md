@@ -18,7 +18,10 @@ This code includes some basic steps:
 * Model matrix
 * Comparison
 * Annotation and output tables
-* Plots
+4. Plots:
+* Volcano Plot
+* HeatMap with genes
+* BoxPlot and ScatterPlot
 
 To run this script, two tables are required:
 * A table with the samples' data, containing features of interest (e.g. cases/controls, gender, etc...)
