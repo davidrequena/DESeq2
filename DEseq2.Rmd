@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Install and/or call the required libraries
 
-This first block is just to install the dependencies. If already installed, just left this commented.
+This first block is just to install the dependencies. If already installed, don't run this block.
 ```{r Install libraries, eval=TRUE, echo=FALSE}
 # # Import necessary libraries
 install.packages('knitr')
@@ -256,8 +256,8 @@ head(assay(transf.data))
 # But including some improvements made by David Requena
 # Now this allows to choose which PCs plot and to use two features for color/shape
 
-plotPCA_DR <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2), size = 7, alpha = 1,
-                       colors = NULL, returnData = FALSE) 
+plotPCA_DR <- function (object, intgroup = "condition", ntop = 500, PCs = c(1,2),
+                        size = 7, alpha = 1, colors = NULL, returnData = FALSE) 
 {
   PC_x <- paste("PC", PCs[1], sep = "")
   PC_y <- paste("PC", PCs[2], sep = "")
@@ -608,8 +608,10 @@ res_fold.under.sorted <- res_fold.under[order(res_fold.under$log2FoldChange, na.
 head(res_fold.over.sorted, n = 10)
 head(res_fold.under.sorted, n = 10)
 
-write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
-write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
+write.csv(as.data.frame(res_fold.over.sorted),
+          file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
+write.csv(as.data.frame(res_fold.under.sorted),
+          file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
 
 ####################################################
 # Visualizing and filtering the additional results #
@@ -717,15 +719,13 @@ p.volcano <- ggplot() + theme_bw() +
   geom_rect(aes(xmin = cutoff_fold, xmax = fld_nice, ymin = -log10(cutoff_alpha), ymax = -log10(ctf_nice)),
             fill="lightgoldenrodyellow", alpha = 0.5, inherit.aes = FALSE) +
   # Datapoints, in different colors:
-  geom_point(data = d.volcano, aes(x = d.volcano$log2FoldChange, y = -log10(d.volcano$padj), fill = d.volcano$colors),
+  geom_point(data = d.volcano,
+             aes(x = d.volcano$log2FoldChange, y = -log10(d.volcano$padj), fill = d.volcano$colors),
              size = 1.5, pch=21, color = "gray10", alpha = 0.7, show.legend = TRUE) +
   # Legend
   scale_fill_manual(name = "Relative expression",
-                     values = c("over" = "springgreen",
-                                "under" = "deepskyblue",
-                                "middle" = "yellow",
-                                "worst" = "firebrick1",
-                                "other" = "tan1"),
+                     values = c("over" = "springgreen", "under" = "deepskyblue",
+                                "middle" = "yellow", "worst" = "firebrick1", "other" = "tan1"),
                      breaks = c("over", "under"), labels = c("Overexpressed", "Underexpressed")) +
   guides(fill = guide_legend(override.aes = list(size=8))) + theme(legend.position = c(0.90, 0.92)) +
   # Labels for the datapoints selected:
@@ -822,7 +822,10 @@ plotBoxScatter_DR <- function (genename = NULL, symbol = NULL, colors = NULL, po
   df.box <- data.frame(ds.deseq@colData[, c("id", "lib_prep", "sample_type", "patient")], gene_counts)
   
   # Re-ordering sample_type for the plot
-  df.box$sample_type <- factor(df.box$sample_type, levels = c("normal", "primary", "metastasis"), labels=c("N", "P", "M"))
+  df.box$sample_type <- factor(df.box$sample_type,
+                               levels = c("normal", "primary", "metastasis"),
+                               labels=c("N", "P", "M"))
+  
   # This combines lib_prep and sample_type in a new variable
   df.box$lib_sample <- interaction(df.box$lib_prep, df.box$sample_type)
   # Plot
