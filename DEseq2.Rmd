@@ -16,24 +16,24 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Install and/or call the required libraries
 
 This first block is just to install the dependencies. If already installed, just left this commented.
-```{r Install libraries, eval=FALSE, echo=FALSE}
+```{r Install libraries, eval=TRUE, echo=FALSE}
 # # Import necessary libraries
-# install.packages('knitr')
-# install.packages('matrixStats')
-# install.packages('RColorBrewer')
-# install.packages('gplots')
-# install.packages('ggplot2')
-# install.packages('ggrepel')
-# install.packages('tsne')
-# install.packages('BatchJobs')
-# install.packages('gridExtra')
- 
-#source("https://bioconductor.org/biocLite.R")
-# biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
-# biocLite("BiocParallel", dependencies=TRUE)
-# biocLite("DESeq2", dependencies=TRUE)
-# biocLite("biomaRt", dependencies=TRUE)
-# biocLite("pheatmap", dependencies=TRUE)
+install.packages('knitr')
+install.packages('matrixStats')
+install.packages('RColorBrewer')
+install.packages('gplots')
+install.packages('ggplot2')
+install.packages('ggrepel')
+install.packages('tsne')
+install.packages('BatchJobs')
+install.packages('gridExtra')
+
+source("https://bioconductor.org/biocLite.R")
+biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
+biocLite("BiocParallel", dependencies=TRUE)
+biocLite("DESeq2", dependencies=TRUE)
+biocLite("biomaRt", dependencies=TRUE)
+biocLite("pheatmap", dependencies=TRUE)
 ```
 
 This block is to call all the required libraries:
@@ -76,7 +76,6 @@ There is also an option to work with subsets.
 #########################
 # Input sample metadata #
 #########################
-
 sampledata <- data.frame(read.csv(sample_data, sep = "\t", header = TRUE))
 
 # The next three lines are examples of how to work with a subset of the data:
@@ -99,7 +98,6 @@ There is also an option to filter out some genes (blacklist).
 ######################
 # Input counts table #
 ######################
-
 countstable <- data.frame(read.csv(counts_data, sep = "\t", header = FALSE), stringsAsFactors = FALSE)
 
 # Filter out some genes in a pre defined black list:
@@ -130,9 +128,8 @@ countstable.num <- as.data.frame(apply(countstable.sorted, c(1,2), as.integer))
 rownames(countstable.num) <- generows
 colnames(countstable.num) <- genecols
 
-# If the sampledata table were filtered in the chunk above,
-# this line is to filter the countstable
-# If not, this line will do nothing
+# If the sampledata table was filtered in the chunk above, this line will filter
+# the countstable as well. If not, this will do nothing:
 countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
 ```
 
@@ -340,8 +337,8 @@ Making some PCA plots
 pr <- prcomp(t(assay(transf.data)))
 
 # Colors for presentations
-# nice_colors <- c("dodgerblue3", "gold", "firebrick3")
-nice_colors <- c("steelblue1", "khaki1", "firebrick1")
+# nice_colors <- c("dodgerblue3", "gold", "firebrick3") # Brilliant colors
+nice_colors <- c("steelblue1", "khaki1", "firebrick1") # Color-blind safe
 
 # Colors for article
 # nice_colors <- c("white", "gray80", "gray35")
@@ -471,9 +468,9 @@ p.tsne_big_clean
 p.tsne_big_features
 
 ggsave("Plots/tSNE_clean.jpg", p.tsne_clean, width = 16, height = 10, dpi = 300)
-ggsave("Plots/tSNE_features.jpg", p.tsne, width = 16, height = 10, dpi = 300)
+ggsave("Plots/tSNE_features.jpg", p.tsne_features, width = 16, height = 10, dpi = 300)
 ggsave("Plots/tSNE_big_clean.jpg", p.tsne_big_clean, width = 8.5, height = 7, dpi = 300)
-ggsave("Plots/tSNE_big_features.jpg", p.tsne_big, width = 8.5, height = 7, dpi = 300)
+ggsave("Plots/tSNE_big_features.jpg", p.tsne_big_features, width = 8.5, height = 7, dpi = 300)
 ```
 
 ### HeatMap
@@ -493,8 +490,6 @@ ggsave("Plots/Heatmap_basic.jpg", width = 10, height = 10, dpi = 300,
 
 # To personalize the colors, use:
 # Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
-# heatmap.2(sampleDistMatrix, trace="none", margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
-#          key = TRUE, density.info = "none", col=colors)
 ```
 
 ## 3. Data Analysis
@@ -521,10 +516,13 @@ mm <- mm[ , colSums(mm) > 0]
 
 ### Comparison
 ```{r, echo=FALSE}
+# Number of cores of your computer:
+nc = 8
+
 # Run DESeq2 using the model defined above
 ds.deseq <- DESeq(ds.deseq, full=mm,
                   modelMatrixType="standard", betaPrior=FALSE,
-                  parallel = TRUE, BPPARAM=BatchJobsParam(workers = 64))
+                  parallel = TRUE, BPPARAM=BatchJobsParam(workers = nc))
 
 # This will show the possible comparisons, according to the design provided
 resultsNames(ds.deseq)
@@ -534,11 +532,27 @@ cutoff_alpha <- 0.05
 # Cut off fold-change
 cutoff_fold <- 1
 
+# Get an specific result (see "help(results)" for info on this)
+res_NP <- results(ds.deseq, name = "sample_typeprimary",
+               altHypothesis="greaterAbs",
+               alpha = cutoff_alpha,
+               pAdjustMethod = "BH") # Benjamini Hochberg = FDR
+
+summary(res_NP)
+
+# Get an specific result (see "help(results)" for info on this)
+res_NM <- results(ds.deseq, name = "sample_typemetastasis",
+               altHypothesis="greaterAbs",
+               alpha = cutoff_alpha,
+               pAdjustMethod = "BH") # Benjamini Hochberg = FDR
+
+summary(res_NM)
+
 # Get the result of a certain comparison (see "help(results)" for info on this)
 res <- results(ds.deseq, contrast=list("sample_typemetastasis", "sample_typeprimary"),
                altHypothesis="greaterAbs",
                alpha = cutoff_alpha,
-               pAdjustMethod = "BH") # Benjamini Hochberg, or FDR
+               pAdjustMethod = "BH") # Benjamini Hochberg = FDR
 
 summary(res)
 ```
@@ -571,7 +585,6 @@ This is to visualize a summary of the results and make some output tables in .cs
 # Visualizing and filtering the results #
 #########################################
 
-summary(res)
 write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_full.csv")
 head(res, n = 10)
 
@@ -597,6 +610,42 @@ head(res_fold.under.sorted, n = 10)
 
 write.csv(as.data.frame(res_fold.over.sorted), file = "results_Mets_vs_Prims_over_(pval_filtered)_(fold_sorted).csv")
 write.csv(as.data.frame(res_fold.under.sorted), file = "results_Mets_vs_Prims_under_(pval_filtered)_(fold_sorted).csv")
+
+####################################################
+# Visualizing and filtering the additional results #
+####################################################
+
+# Primary vs Normal, overexpressed genes
+res_NP.sig.fold_over <- subset(res_NP,
+                              ((padj < cutoff_alpha) & !is.na(padj)) &
+                                log2FoldChange >= cutoff_fold)
+summary(res_NP.sig.fold_over)
+write.csv(as.data.frame(res_fold.over.sorted),
+          file = "results_Prims_vs_Normal_over_filtered_(pval_fold).csv")
+
+# Primary vs Normal, underexpressed genes
+res_NP.sig.fold_under <- subset(res_NP,
+                              ((padj < cutoff_alpha) & !is.na(padj)) &
+                                log2FoldChange <= -cutoff_fold)
+summary(res_NP.sig.fold_under)
+write.csv(as.data.frame(res_fold.under.sorted),
+          file = "results_Prims_vs_Normal_under_filtered_(pval_fold).csv")
+
+# Metastasis vs Normal, overexpressed genes
+res_NM.sig.fold_over <- subset(res_NM,
+                              ((padj < cutoff_alpha) & !is.na(padj)) &
+                                log2FoldChange >= cutoff_fold)
+summary(res_NM.sig.fold_over)
+write.csv(as.data.frame(res_fold.over.sorted),
+          file = "results_Mets_vs_Normal_over_filtered_(pval_fold).csv")
+
+# Metastasis vs Normal, underexpressed genes
+res_NM.sig.fold_under <- subset(res_NM,
+                              ((padj < cutoff_alpha) & !is.na(padj)) &
+                                log2FoldChange <= -cutoff_fold)
+summary(res_NM.sig.fold_under)
+write.csv(as.data.frame(res_fold.over.sorted),
+          file = "results_Mets_vs_Normal_under_filtered_(pval_fold).csv")
 ```
 
 ## Plots
@@ -670,6 +719,7 @@ p.volcano <- ggplot() + theme_bw() +
   # Datapoints, in different colors:
   geom_point(data = d.volcano, aes(x = d.volcano$log2FoldChange, y = -log10(d.volcano$padj), fill = d.volcano$colors),
              size = 1.5, pch=21, color = "gray10", alpha = 0.7, show.legend = TRUE) +
+  # Legend
   scale_fill_manual(name = "Relative expression",
                      values = c("over" = "springgreen",
                                 "under" = "deepskyblue",
@@ -763,10 +813,10 @@ boxplot and scatterplots.
 ################################
 # This function will make a Boxplot, but showing also the datapoints on top but
 # with an small deviation (jitter) for a better visualization
-plotBoxScatter_DR <- function (genename = NULL, symbol = NULL)
+plotBoxScatter_DR <- function (genename = NULL, symbol = NULL, colors = NULL, poster = NULL)
 {
   # Extracting the vector of counts for that gene
-  gene_counts <- counts(ds.deseq, normalized = TRUE)[genename,]
+  gene_counts <- counts(ds.deseq, normalized = TRUE)[genename, ]
   
   # Making a dataframe for the plot
   df.box <- data.frame(ds.deseq@colData[, c("id", "lib_prep", "sample_type", "patient")], gene_counts)
@@ -775,30 +825,39 @@ plotBoxScatter_DR <- function (genename = NULL, symbol = NULL)
   df.box$sample_type <- factor(df.box$sample_type, levels = c("normal", "primary", "metastasis"), labels=c("N", "P", "M"))
   # This combines lib_prep and sample_type in a new variable
   df.box$lib_sample <- interaction(df.box$lib_prep, df.box$sample_type)
-  
   # Plot
   p.bs <- ggplot(df.box, aes(x = df.box$sample_type, y = log2(df.box$gene_counts))) +
     theme_bw() + geom_boxplot(width = 0.8, fill = "gray90") +
-    geom_point(aes(fill = df.box$sample_type),
-               size = 3, alpha = 0.9, pch = 21, color = "black",
-               position = position_jitter(width = 0.35)) +
     labs(title = paste0("Gene: ", symbol, " (", genename, ")")) +
     labs(x = expression("Sample Type"),
          y = expression("log"[2]*"(Normalized Gene Counts)"),
-         title = paste0("Gene: ", symbol, " (", genename, ")")) +
-    scale_fill_discrete(name = "Sample Type")
-
-  # Comment 5 lines above and use the following 5 lines instead to make bigger plots, good for posters:
-  # labs(title = paste0(symbol, " (", genename, ")")) +
-  # theme(axis.title.x = element_blank(), axis.title.y = element_blank(),
-  #       axis.text.x = element_text(size = 14), axis.text.y = element_text(size = 14)) +
-  # guides(fill=FALSE) +
-  # scale_fill_manual(values = c("N" = "dodgerblue3", "P" = "gold", "M" = "firebrick3"))
+         title = paste0("Gene: ", symbol, " (", genename, ")"))
   
-  # Note to me (DR): use aes(shape = df.box$lib_prep)
-
+  if (poster == TRUE) {
+    # To make bigger plots, good for posters
+    p.bs <- p.bs +
+      geom_point(aes(fill = df.box$sample_type),
+                 size = 7, alpha = 0.8, pch = 21, color = "black",
+                 position = position_jitter(width = 0.35)) +
+      theme(axis.text.x = element_text(size = 20),
+            axis.text.y = element_text(size = 16)) +
+      scale_fill_manual(name = "Sample Type", values = colors,
+                        labels = c("Normal", "Primary", "Metastasis"))
+      # + theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+      # guides(fill=FALSE)
+  } else {
+    # To make regular-size plots
+    p.bs <- p.bs +
+      geom_point(aes(fill = df.box$sample_type),
+                 size = 3, alpha = 0.9, pch = 21, color = "black",
+                 position = position_jitter(width = 0.35)) +
+      scale_fill_manual(name = "Sample Type", values = colors,
+                        labels = c("Normal", "Primary", "Metastasis"))
+  }
   return(p.bs)
 }
+
+# Note to me (DR): use aes(shape = df.box$lib_prep)
 ```
 
 Making plots for some genes of interest:
@@ -810,9 +869,23 @@ interesting_genes <- data.frame(read.csv("genes_underexp.tsv", sep = "\t", heade
 # Then, this loop will make and save the plots for all the genes in the table
 for (i in 1:nrow(interesting_genes)) {
   ggsave(paste0("By_Gene/Underexp/", interesting_genes[i, 2], ".jpg"),
-         plotBoxScatter_DR(toString(interesting_genes[i, 1]), toString(interesting_genes[i, 2])),
-         width = 16, height = 10, dpi = 300)
+         width = 16, height = 10, dpi = 300,
+         plotBoxScatter_DR(toString(interesting_genes[i, 1]),
+                           toString(interesting_genes[i, 2]),
+                           colors = nice_colors, poster = F))
 }
+
+
+# Colors for presentations:
+# nice_colors <- c("dodgerblue3", "gold", "firebrick3") # Brilliant colors
+nice_colors <- c("steelblue1", "khaki1", "firebrick1") # Color-blind safe
+
+# Colors for article:
+# nice_colors <- c("white", "gray80", "gray35")
+
+# To make and save the plot of one specific gene (e.g. TCN1):
+ggsave("TCN1.jpg", width = 6, height = 8, dpi = 300,
+       plotBoxScatter_DR("ENSG00000134827", "TCN1", colors = nice_colors, poster = T))
 ```
 
 For further guidance, check the DESeq2 Vignette:
