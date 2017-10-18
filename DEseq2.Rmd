@@ -878,7 +878,6 @@ for (i in 1:nrow(interesting_genes)) {
                            colors = nice_colors, poster = F))
 }
 
-
 # Colors for presentations:
 # nice_colors <- c("dodgerblue3", "gold", "firebrick3") # Brilliant colors
 nice_colors <- c("steelblue1", "khaki1", "firebrick1") # Color-blind safe
