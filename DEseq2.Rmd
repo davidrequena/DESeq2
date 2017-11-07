@@ -697,7 +697,7 @@ write.csv(as.data.frame(res_fold.over.sorted),
 ## Plots
 This section is to generate some plots from the results:
 
-### Dispersion Estimates
+### Histogram of p-values
 ```{r, echo=FALSE}
 # Including all the datapoints
 hist(res$pvalue, breaks=20, col="grey50", border="white")
