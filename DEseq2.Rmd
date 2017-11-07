@@ -974,5 +974,6 @@ ggplot(data, aes(x = sample_type, y = count, color = lib_prep, group = patient))
 
 For further guidance, check the DESeq2 Vignette:
 https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
-Amd this tutorial:
+
+And this tutorial:
 https://www.bioconductor.org/help/course-materials/2015/LearnBioconductorFeb2015/B02.1.1_RNASeqLab.html#diagnostic
