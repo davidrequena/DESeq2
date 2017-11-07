@@ -18,42 +18,42 @@ knitr::opts_chunk$set(echo = TRUE)
 This first block is just to install the dependencies. If already installed, don't run this block.
 ```{r Install libraries, eval=TRUE, echo=FALSE}
 # # Import necessary libraries
-install.packages('knitr')
-install.packages('matrixStats')
-install.packages('RColorBrewer')
-install.packages('gplots')
-install.packages('ggplot2')
-install.packages('ggrepel')
-install.packages('tsne')
-install.packages('BatchJobs')
-install.packages('gridExtra')
-
-source("https://bioconductor.org/biocLite.R")
-biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
-biocLite("BiocParallel", dependencies=TRUE)
-biocLite("DESeq2", dependencies=TRUE)
-biocLite("biomaRt", dependencies=TRUE)
-biocLite("pheatmap", dependencies=TRUE)
+# install.packages('knitr')
+# install.packages('matrixStats')
+# install.packages('RColorBrewer')
+# install.packages('gplots')
+# install.packages('ggplot2')
+# install.packages('ggrepel')
+# install.packages('tsne')
+# install.packages('BatchJobs')
+# install.packages('gridExtra')
+# 
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("XML") #In linux, first do: sudo apt-get install libxml2-dev
+# biocLite("BiocParallel", dependencies=TRUE)
+# biocLite("DESeq2", dependencies=TRUE)
+# biocLite("biomaRt", dependencies=TRUE)
+# biocLite("pheatmap", dependencies=TRUE)
 ```
 
 This block is to call all the required libraries:
 ```{r, echo=FALSE}
 # library("XML")
-library("knitr")
-library("DESeq2")
-library("biomaRt")
-library("matrixStats")
-library("BatchJobs")
-library("BiocParallel")
-library("scales")
-library("RColorBrewer")
-library("gplots")
-library("ggplot2")
-library("ggrepel")
-library("gridExtra")
-library("tsne")
-library("pheatmap")
-library("grDevices")
+library("knitr", quietly = T)
+library("DESeq2", quietly = T)
+library("biomaRt", quietly = T)
+library("matrixStats", quietly = T)
+library("BatchJobs", quietly = T)
+library("BiocParallel", quietly = T)
+library("scales", quietly = T)
+library("RColorBrewer", quietly = T)
+library("gplots", quietly = T)
+library("ggplot2", quietly = T)
+library("ggrepel", quietly = T)
+library("gridExtra", quietly = T)
+library("tsne", quietly = T)
+library("pheatmap", quietly = T)
+library("grDevices", quietly = T)
 ```
 
 ### Input sample metadata
@@ -78,16 +78,14 @@ There is also an option to work with subsets.
 #########################
 sampledata <- data.frame(read.csv(sample_data, sep = "\t", header = TRUE))
 
-# The next three lines are examples of how to work with a subset of the data:
-#sampledata <- sampledata[sampledata$library_prep!=0,]
-#sampledata <- sampledata[sampledata$have_npm=="Y",]
-#sampledata <- sampledata[sampledata$normal_pm=="Y",]
+# This is an example of how to work with a subset of the data:
+#sampledata <- sampledata[sampledata$lib_prep != "A",]
 
 sampledata$library_prep <- factor(sampledata$library_prep)
 droplevels(sampledata$id)
 
 # To sort the table by sample name:
-sampledata <- sampledata[order(sampledata[,2]),]
+sampledata <- sampledata[order(sampledata$id), ]
 sampledata$patient <- as.character(sampledata$patient)
 rownames(sampledata) <- sampledata$id
 ```
@@ -131,6 +129,48 @@ colnames(countstable.num) <- genecols
 # If the sampledata table was filtered in the chunk above, this line will filter
 # the countstable as well. If not, this will do nothing:
 countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
+
+#####################
+# Remove empty rows #
+#####################
+countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
+```
+
+This block is to explore the distribution of normalized counts by sample
+```{r, echo=FALSE}
+#############################################################
+# Exploring the distribution of normalized counts by sample #
+#############################################################
+
+# List of samples  by type
+type_all <- sampledata$id
+type_normal <- sampledata$id[sampledata$sample_type == "normal"]
+type_primary <- sampledata$id[sampledata$sample_type == "primary"]
+type_metastasis <- sampledata$id[sampledata$sample_type == "metastasis"]
+
+# Normalize the dataset:
+library_sizes <- colSums(countstable.num)
+countstable.normalized <- countstable.num / colSums(countstable.num)
+
+# To check the counts by sample type:
+countstable.N.means <- rowMeans(countstable.normalized[ , type_normal])
+countstable.P.means <- rowMeans(countstable.normalized[ , type_primary])
+countstable.M.means <- rowMeans(countstable.normalized[ , type_metastasis])
+
+df.mean_counts <- data.frame(Normal = countstable.N.means,
+                             Primary = countstable.P.means,
+                             Metastasis = countstable.M.means)
+
+genemap <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol", "description"),
+                 filters = "ensembl_gene_id",
+                 values = rownames(df.mean_counts),
+                 mart = useMart("ensembl", dataset = "hsapiens_gene_ensembl"))
+
+indx <- match(rownames(df.mean_counts), genemap$ensembl_gene_id)
+df.mean_counts$symbol <- genemap$hgnc_symbol[indx]
+df.mean_counts$description <- genemap$description[indx]
+
+write.csv(as.data.frame(df.mean_counts), file = "Mean_Counts.csv")
 ```
 
 This block is to explore the distribution of counts by sample
@@ -162,12 +202,8 @@ text(ncol(countstable.num) - 1.1, tail(h$counts, 1) * 1.15, col = "orange", srt 
 
 Prior Filtering
 ```{r, echo=FALSE}
-
-# Remove empty rows:
-countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
-
-# You should remove also those genes with counts in only one sample.
-# But there have to be a rationale for this. Check first those cases,
+# You might want to remove also those genes with counts in only one sample.
+# But there should be a rationale for this. Check first those cases,
 # to determine if this is reasonable to drop them or not.
 # To check the counts in those samples, uncomment the next two lines:
 # genes_1sample <- countstable.num[rowSums(countstable.num > 0) == 1, ]
@@ -184,12 +220,13 @@ countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
 # genes_1sample$symbol <- genemap$hgnc_symbol[indx]
 # genes_1sample$description <- genemap$description[indx]
 
-# Remove those rows (genes) with only one sample with counts:
+##############################################################
+# Remove those rows (genes) with only one sample with counts #
+##############################################################
 countstable.num <- countstable.num[rowSums(countstable.num > 0) > 1, ]
 
 # The rest of the code in this block is only necessary if you wanna apply an additional
 # independent prior filtering before the differential expression analysis:
-
 ##########################################
 # Independent prior filtering (optional) #
 ##########################################
@@ -225,7 +262,8 @@ ds.deseq <- DESeqDataSetFromMatrix(
 # To see which is the current base level:
 str(colData(ds.deseq)$sample_type)
 # To indicate the base level: sample_type == normal
-colData(ds.deseq)$sample_type  <- relevel(colData(ds.deseq)$sample_type, "normal")
+colData(ds.deseq)$sample_type  <- factor(colData(ds.deseq)$sample_type,
+                                         levels = c("normal", "primary", "metastasis"))
 # To verify which is the current base level
 str(colData(ds.deseq)$sample_type)
 ```
@@ -236,11 +274,15 @@ This step is necessary to determine which variables we should control by
 ### Transformations of the Data
 To adjust by known effects
 ```{r, echo=FALSE}
-# Variance stabilized transformation
+######################################
+# Variance stabilized transformation #
+######################################
 transf.data <- varianceStabilizingTransformation(ds.deseq)
 head(assay(transf.data))
 
-# rLog transformation
+#######################
+# rLog transformation #
+#######################
 # transf.data <- rlog(ds.deseq)
 # head(assay(transf.data))
 ```
@@ -336,11 +378,10 @@ Making some PCA plots
 # Using a simple method to plot the PCs:
 pr <- prcomp(t(assay(transf.data)))
 
-# Colors for presentations
+# Colors for presentations and posters:
 # nice_colors <- c("dodgerblue3", "gold", "firebrick3") # Brilliant colors
 nice_colors <- c("steelblue1", "khaki1", "firebrick1") # Color-blind safe
-
-# Colors for article
+# Colors for articles:
 # nice_colors <- c("white", "gray80", "gray35")
 
 # Plot PCs using the function defined above:
@@ -402,6 +443,8 @@ ggsave("Plots/PCA12_features.jpg", pca12, width = 16, height = 10, dpi = 300)
 ggsave("Plots/PCA23_features.jpg", pca23, width = 16, height = 10, dpi = 300)
 ggsave("Plots/PCA34_features.jpg", pca34, width = 16, height = 10, dpi = 300)
 
+# Additional options:
+#####################
 # This is to add labels to the basic PCA plot made using the function plot()
 # But this is not necessary because we have now the function plotPCAdr
 # text(pr$x[,2], pr$x[,3], labels = colnames(assay(transf.data)),
@@ -416,7 +459,7 @@ ggsave("Plots/PCA34_features.jpg", pca34, width = 16, height = 10, dpi = 300)
 ### tSNE plot
 ```{r, echo=FALSE}
 # Calculate the euclidean distances between samples
-sampleDists <- dist(t(assay(transf.data)))
+# sampleDists <- dist(t(assay(transf.data)))
 
 # Perplexity is set to 4 because this is our average number of samples by patient (neighbors in a set)
 samples.tsne <- tsne(sampleDists, perplexity = 4, max_iter = 10000, epoch=1000)
@@ -438,7 +481,8 @@ p.tsne_clean <- ggplot(data = df.tsne) + theme_bw() +
 p.tsne_features <- ggplot(data = df.tsne) + theme_bw() +
   geom_point(aes(x = X1, y = X2, fill = sample_type, shape = library), size = 7) +
   scale_fill_manual(values = nice_colors, guide = guide_legend(override.aes = aes(shape = 21))) +
-  theme(axis.text.x = element_blank(), axis.text.y = element_blank()) +
+  theme(axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position = c(0.95, 0.84),
+        legend.background = element_rect(color = "black"), legend.box.just = "right") +
   labs(fill = expression(underline("Sample Type")), shape = expression(underline("Library"))) +
   scale_shape_manual(values = c(24, 21, 22, 25)) +
   geom_text_repel(aes_string(x = df.tsne$X1, y = df.tsne$X2, label = df.tsne$id), color = "black",
@@ -488,7 +532,7 @@ ggsave("Plots/Heatmap_basic.jpg", width = 10, height = 10, dpi = 300,
        heatmap.2(sampleDistMatrix, margins = c(7.2, 7.2), offsetRow = 0, offsetCol = 0,
                      trace="none", revC = TRUE, key = FALSE))
 
-# To personalize the colors, use:
+# To personalize the colors, use the folowwing line in the heatmap:
 # Colors = colorRampPalette(rev(brewer.pal(9, "Reds"))) (255)
 ```
 
@@ -517,7 +561,7 @@ mm <- mm[ , colSums(mm) > 0]
 ### Comparison
 ```{r, echo=FALSE}
 # Number of cores of your computer:
-nc = 8
+nc = 32
 
 # Run DESeq2 using the model defined above
 ds.deseq <- DESeq(ds.deseq, full=mm,
@@ -653,15 +697,44 @@ write.csv(as.data.frame(res_fold.over.sorted),
 ## Plots
 This section is to generate some plots from the results:
 
+### Dispersion Estimates
+```{r, echo=FALSE}
+# Including all the datapoints
+hist(res$pvalue, breaks=20, col="grey50", border="white")
+# Only those with base mean > 1
+hist(res$pvalue[res$baseMean > 1], breaks=20, col="grey50", border="white")
+```
+
+### Dispersion Estimates
+```{r, echo=FALSE}
+# DESeq2's dispersion estimates
+plotDispEsts(ds.deseq)
+```
+
+### MA Plot
+```{r, echo=FALSE}
+# The log2 fold change for a particular comparison is plotted on the y-axis
+# and the average of the counts normalized by size factor is shown on the x-axis
+# “M” for minus, because a log ratio is equal to log minus log, and “A” for average.
+
+# Specify one gene, to draw a circle around this point and add a label
+gene_c = "ENSG00000134827"
+
+plotMA(res, ylim=c(-5,5))
+with(res[gene_c, ], {
+  points(baseMean, log2FoldChange, col="dodgerblue", cex=2, lwd=2)
+  text(baseMean, log2FoldChange, gene_c, pos=2, col="dodgerblue")
+})
+```
+
 ### Volcano Plot
 ```{r, echo=FALSE}
-
 # New data frame for the volcano plot
 d.volcano <- data.frame(res)
 # To remove empty adjusted p-values
 d.volcano <- d.volcano[!is.na(d.volcano$padj), ]
 
-# Optional: To reduce the range of the volcano plot, for posters
+# Optional: To remove some extrene values, to reduce the range of the volcano plot for posters
 #d.volcano <- d.volcano[(abs(d.volcano$log2FoldChange) < 8) & (-log10(d.volcano$padj) < 7.5), ]
 
 # To fill the "empty" labels
@@ -882,13 +955,24 @@ for (i in 1:nrow(interesting_genes)) {
 # nice_colors <- c("dodgerblue3", "gold", "firebrick3") # Brilliant colors
 nice_colors <- c("steelblue1", "khaki1", "firebrick1") # Color-blind safe
 
-# Colors for article:
-# nice_colors <- c("white", "gray80", "gray35")
-
 # To make and save the plot of one specific gene (e.g. TCN1):
 ggsave("TCN1.jpg", width = 6, height = 8, dpi = 300,
        plotBoxScatter_DR("ENSG00000134827", "TCN1", colors = nice_colors, poster = T))
 ```
 
+Code in progress:
+```{r, echo=FALSE}
+data <- plotCounts(ds.deseq, gene = "ENSG00000134827", intgroup=c("lib_prep", "sample_type", "patient"), returnData=TRUE)
+
+ggplot(data, aes(x = sample_type, y = count, color = lib_prep)) +
+  scale_y_log10() + 
+  geom_point(position=position_jitter(width=.1,height=0))
+
+ggplot(data, aes(x = sample_type, y = count, color = lib_prep, group = patient)) +
+  scale_y_log10() + geom_line() + geom_point(position=position_jitter(width=.1,height=0))
+```
+
 For further guidance, check the DESeq2 Vignette:
 https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
+Amd this tutorial:
+https://www.bioconductor.org/help/course-materials/2015/LearnBioconductorFeb2015/B02.1.1_RNASeqLab.html#diagnostic
