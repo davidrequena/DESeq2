@@ -133,6 +133,7 @@ countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
 #####################
 # Remove empty rows #
 #####################
+# Keep this line if you wanna see the lasst bar of the histogram of counts below
 countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
 ```
 
@@ -459,7 +460,7 @@ ggsave("Plots/PCA34_features.jpg", pca34, width = 16, height = 10, dpi = 300)
 ### tSNE plot
 ```{r, echo=FALSE}
 # Calculate the euclidean distances between samples
-# sampleDists <- dist(t(assay(transf.data)))
+sampleDists <- dist(t(assay(transf.data)))
 
 # Perplexity is set to 4 because this is our average number of samples by patient (neighbors in a set)
 samples.tsne <- tsne(sampleDists, perplexity = 4, max_iter = 10000, epoch=1000)
@@ -630,7 +631,8 @@ This is to visualize a summary of the results and make some output tables in .cs
 #########################################
 
 write.csv(as.data.frame(res), file = "results_Mets_vs_Prims_full.csv")
-head(res, n = 10)
+write.csv(as.data.frame(res_NM), file = "results_Mets_vs_Normal_full.csv")
+write.csv(as.data.frame(res_NP), file = "results_Prims_vs_Normal_full.csv")
 
 table(res$padj < cutoff_alpha)
 table(abs(res$log2FoldChange) >= cutoff_fold)
@@ -666,7 +668,7 @@ res_NP.sig.fold_over <- subset(res_NP,
                               ((padj < cutoff_alpha) & !is.na(padj)) &
                                 log2FoldChange >= cutoff_fold)
 summary(res_NP.sig.fold_over)
-write.csv(as.data.frame(res_fold.over.sorted),
+write.csv(as.data.frame(res_NP.sig.fold_over),
           file = "results_Prims_vs_Normal_over_filtered_(pval_fold).csv")
 
 # Primary vs Normal, underexpressed genes
@@ -674,7 +676,7 @@ res_NP.sig.fold_under <- subset(res_NP,
                               ((padj < cutoff_alpha) & !is.na(padj)) &
                                 log2FoldChange <= -cutoff_fold)
 summary(res_NP.sig.fold_under)
-write.csv(as.data.frame(res_fold.under.sorted),
+write.csv(as.data.frame(res_NP.sig.fold_under),
           file = "results_Prims_vs_Normal_under_filtered_(pval_fold).csv")
 
 # Metastasis vs Normal, overexpressed genes
@@ -682,7 +684,7 @@ res_NM.sig.fold_over <- subset(res_NM,
                               ((padj < cutoff_alpha) & !is.na(padj)) &
                                 log2FoldChange >= cutoff_fold)
 summary(res_NM.sig.fold_over)
-write.csv(as.data.frame(res_fold.over.sorted),
+write.csv(as.data.frame(res_NM.sig.fold_over),
           file = "results_Mets_vs_Normal_over_filtered_(pval_fold).csv")
 
 # Metastasis vs Normal, underexpressed genes
@@ -690,7 +692,7 @@ res_NM.sig.fold_under <- subset(res_NM,
                               ((padj < cutoff_alpha) & !is.na(padj)) &
                                 log2FoldChange <= -cutoff_fold)
 summary(res_NM.sig.fold_under)
-write.csv(as.data.frame(res_fold.over.sorted),
+write.csv(as.data.frame(res_NM.sig.fold_under),
           file = "results_Mets_vs_Normal_under_filtered_(pval_fold).csv")
 ```
 
@@ -912,23 +914,27 @@ plotBoxScatter_DR <- function (genename = NULL, symbol = NULL, colors = NULL, po
   if (poster == TRUE) {
     # To make bigger plots, good for posters
     p.bs <- p.bs +
-      geom_point(aes(fill = df.box$sample_type),
-                 size = 7, alpha = 0.8, pch = 21, color = "black",
+      geom_point(aes(fill = df.box$sample_type, shape = df.box$lib_prep),
+                 size = 7, alpha = 0.8, color = "black",
                  position = position_jitter(width = 0.35)) +
       theme(axis.text.x = element_text(size = 20),
             axis.text.y = element_text(size = 16)) +
+      scale_shape_manual(name = "Library", values = c(24, 21, 22, 25)) +
       scale_fill_manual(name = "Sample Type", values = colors,
-                        labels = c("Normal", "Primary", "Metastasis"))
+                        labels = c("Normal", "Primary", "Metastasis"),
+                        guide = guide_legend(override.aes = aes(shape = 21, size = 9)))
       # + theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
       # guides(fill=FALSE)
   } else {
     # To make regular-size plots
     p.bs <- p.bs +
-      geom_point(aes(fill = df.box$sample_type),
-                 size = 3, alpha = 0.9, pch = 21, color = "black",
+      geom_point(aes(fill = df.box$sample_type, shape = df.box$lib_prep),
+                 size = 3, alpha = 0.9, color = "black",
                  position = position_jitter(width = 0.35)) +
+      scale_shape_manual(name = "Library", values = c(24, 21, 22, 25)) +
       scale_fill_manual(name = "Sample Type", values = colors,
-                        labels = c("Normal", "Primary", "Metastasis"))
+                        labels = c("Normal", "Primary", "Metastasis"),
+                        guide = guide_legend(override.aes = aes(shape = 21)))
   }
   return(p.bs)
 }
@@ -958,6 +964,8 @@ nice_colors <- c("steelblue1", "khaki1", "firebrick1") # Color-blind safe
 # To make and save the plot of one specific gene (e.g. TCN1):
 ggsave("TCN1.jpg", width = 6, height = 8, dpi = 300,
        plotBoxScatter_DR("ENSG00000134827", "TCN1", colors = nice_colors, poster = T))
+ggsave("MALAT1.jpg", width = 6, height = 8, dpi = 300,
+       plotBoxScatter_DR("ENSG00000251562", "MALAT1", colors = nice_colors, poster = T))
 ```
 
 Code in progress:
