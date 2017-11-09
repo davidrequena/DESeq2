@@ -133,7 +133,7 @@ countstable.num <- countstable.num[colnames(countstable.num) %in% sampledata$id]
 #####################
 # Remove empty rows #
 #####################
-# Keep this line if you wanna see the lasst bar of the histogram of counts below
+# Keep this line if you wanna see the last bar of the histogram of counts below
 countstable.num <- countstable.num[ rowSums(countstable.num) > 0, ]
 ```
 
