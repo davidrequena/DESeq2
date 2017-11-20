@@ -1,7 +1,7 @@
 ---
-title: "Differential expression analysis using DEseq2"
+title: "Guide for Differential Expression Analysis using DEseq2"
 author: "David Requena and Jamie Saltsman"
-date: "10/04/2017"
+date: "11/17/2017"
 output: html_document
 ---
 
