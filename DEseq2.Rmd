@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Differential expression analysis using DEseq2
+# Guide for Differential expression analysis using DEseq2
 
 ## 1. SET UP
 
