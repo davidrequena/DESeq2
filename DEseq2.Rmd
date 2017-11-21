@@ -1,5 +1,5 @@
 ---
-title: "Guide for Differential Expression Analysis using DEseq2"
+title: "Guide for the Differential Expression Analysis of RNAseq data using DEseq2"
 author: "David Requena and Jamie Saltsman"
 date: "11/17/2017"
 output: html_document
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Guide for Differential expression analysis using DEseq2
+# Guide for the Differential Expression Analysis of RNAseq data using DEseq2
 
 ## 1. SET UP
 
