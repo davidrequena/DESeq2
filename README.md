@@ -1,4 +1,4 @@
-## Guide for Differential expression analysis of RNAseq data using DEseq2
+## Guide for the Differential Expression Analysis of RNAseq data using DEseq2
 
 Made by David Requena (drequena@rockefeller.edu) and James Saltsman (jsaltsman@rockefeller.edu).
 
