@@ -1,4 +1,4 @@
-## Guide for the Differential Expression Analysis of RNAseq data using DEseq2
+## Guide for the Differential Expression Analysis of RNAseq data using DESeq2
 
 Made by David Requena (drequena@rockefeller.edu) and James Saltsman (jsaltsman@rockefeller.edu).
 
@@ -8,7 +8,7 @@ This code includes some basic steps:
 1. SET UP:
 * Install and/or call the required libraries
 * Input sample metadata
-* Create the DEseq2 object
+* Create the DESeq2 object
 2. Exploring the data:
 * Transformations of the Data
 * PCA plot
@@ -19,6 +19,9 @@ This code includes some basic steps:
 * Comparison
 * Annotation and output tables
 4. Plots:
+* Histogram of p-values
+* Dispersion Estimates
+* MA Plot
 * Volcano Plot
 * HeatMap with genes
 * BoxPlot and ScatterPlot
@@ -29,4 +32,4 @@ To run this script, two tables are required:
 
 And two optional tables:
 * A table with genes to be filtered out (e.g. ribosomal genes)
-* A table with genes of interest, prepare individual plots by gene
+* A table with genes of interest, to prepare individual plots by gene
