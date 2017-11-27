@@ -1,5 +1,5 @@
 ---
-title: "Guide for the Differential Expression Analysis of RNAseq data using DEseq2"
+title: "Guide for the Differential Expression Analysis of RNAseq data using DESeq2"
 author: "David Requena and Jamie Saltsman"
 date: "11/17/2017"
 output: html_document
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Guide for the Differential Expression Analysis of RNAseq data using DEseq2
+# Guide for the Differential Expression Analysis of RNAseq data using DESeq2
 
 ## 1. SET UP
 
@@ -247,7 +247,7 @@ countstable.num <- countstable.num[rowSums(countstable.num > 0) > 1, ]
 # countstable.num <- countstable.num[apply(countstable.num, 1, function(row) (all(row > 5))),]
 ```
 
-### Create the DEseq2 object
+### Create the DESeq2 object
 With no specific design, but indicating the base level
 ```{r, echo=FALSE}
 ################
@@ -541,7 +541,7 @@ ggsave("Plots/Heatmap_basic.jpg", width = 10, height = 10, dpi = 300,
 
 ### Model matrix
 Using the variables chosen from the results above, a model will be determined.
-A matrix representing this model is provided to DEseq in this step.
+A matrix representing this model is provided to DESeq2 in this step.
 ```{r, echo=FALSE}
 ################
 # Model Matrix #
