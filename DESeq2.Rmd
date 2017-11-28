@@ -224,7 +224,7 @@ Prior Filtering
 ##############################################################
 # Remove those rows (genes) with only one sample with counts #
 ##############################################################
-countstable.num <- countstable.num[rowSums(countstable.num > 0) > 1, ]
+# countstable.num <- countstable.num[rowSums(countstable.num > 0) > 1, ]
 
 # The rest of the code in this block is only necessary if you wanna apply an additional
 # independent prior filtering before the differential expression analysis:
@@ -968,7 +968,7 @@ ggsave("MALAT1.jpg", width = 6, height = 8, dpi = 300,
        plotBoxScatter_DR("ENSG00000251562", "MALAT1", colors = nice_colors, poster = T))
 ```
 
-Code in progress:
+The following block of code is still in progress:
 ```{r, echo=FALSE}
 data <- plotCounts(ds.deseq, gene = "ENSG00000134827", intgroup=c("lib_prep", "sample_type", "patient"), returnData=TRUE)
 
